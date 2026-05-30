@@ -3,370 +3,628 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>硬币投注模拟器</title>
+    <title>硬币模拟投资游戏 - 凯利公式完整推导与演示</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <style>
-        .coin {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            font-weight: bold;
-            transition: all 0.4s;
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#f59e0b',
+                        danger: '#ef4444',
+                        success: '#10b981',
+                        win: '#fbbf24',
+                        lose: '#3b82f6',
+                        card: '#ffffff',
+                        bg: '#f3f4f6',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
         }
-        .heads { background: linear-gradient(135deg, #f8fafc, #e2e8f0); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
-        .tails { background: linear-gradient(135deg, #1e40af, #3b82f6); color: white; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
-        .result-grid {
-            display: grid;
-            grid-template-columns: repeat(10, minmax(0, 1fr));
-            gap: 4px;
-        }
-        .strategy-card {
-            transition: all 0.3s;
-        }
-        .strategy-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .coin-table {
+                border-collapse: collapse;
+            }
+            .coin-table td {
+                border: 1px solid #d1d5db;
+                padding: 4px 8px;
+                text-align: center;
+                font-size: 12px;
+            }
+            .coin-head {
+                background-color: #fbbf24;
+                color: #78350f;
+            }
+            .coin-tail {
+                background-color: #3b82f6;
+                color: #ffffff;
+            }
+            .strategy-card {
+                transition: all 0.3s ease;
+            }
+            .strategy-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            }
+            .formula {
+                font-family: 'Times New Roman', serif;
+                font-size: 1.25rem;
+                font-weight: bold;
+                text-align: center;
+                margin: 1rem 0;
+                padding: 1rem;
+                background-color: #f8fafc;
+                border-radius: 0.5rem;
+                border-left: 4px solid #1e40af;
+            }
+            .derive-box {
+                background-color: #f0f9ff;
+                border: 1px solid #bae6fd;
+                border-radius: 0.5rem;
+                padding: 1.2rem;
+                margin: 1rem 0;
+            }
+            .comparison-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 1rem 0;
+            }
+            .comparison-table th, .comparison-table td {
+                border: 1px solid #d1d5db;
+                padding: 8px 12px;
+                text-align: center;
+            }
+            .comparison-table th {
+                background-color: #f3f4f6;
+                font-weight: bold;
+            }
+            .step-item {
+                margin: 0.8rem 0;
+                padding-left: 0.5rem;
+            }
         }
     </style>
 </head>
-<body class="bg-gray-50">
-    <div class="max-w-7xl mx-auto p-6">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">🎲 硬币投注模拟器</h1>
-            <button onclick="runSimulation()" 
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium flex items-center gap-2">
-                <span>🔄 运行100次模拟</span>
+<body class="bg-bg min-h-screen p-4 md:p-6 font-sans">
+    <div class="max-w-7xl mx-auto">
+        <!-- 标题和控制区 -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+            <h1 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-gray-800 mb-4 md:mb-0">
+                <i class="fa fa-line-chart mr-2 text-primary"></i>硬币模拟投资游戏 - 凯利公式完整推导
+            </h1>
+            <button id="refreshBtn" class="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 flex items-center">
+                <i class="fa fa-refresh mr-2"></i>重新模拟100次
             </button>
         </div>
 
-        <div class="grid grid-cols-12 gap-6">
-            <!-- 左侧：投币结果 -->
-            <div class="col-span-12 lg:col-span-5 bg-white rounded-3xl shadow-lg p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold">投币结果 (100次)</h2>
-                    <div class="flex gap-4 text-sm">
-                        <div class="flex items-center gap-1">
-                            <div class="w-3 h-3 bg-red-400 rounded"></div>
-                            <span>正面</span>
-                        </div>
-                        <div class="flex items-center gap-1">
-                            <div class="w-3 h-3 bg-blue-500 rounded"></div>
-                            <span>反面</span>
-                        </div>
-                    </div>
-                </div>
+        <!-- 主内容区 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 左侧：硬币投掷结果 -->
+            <div class="lg:col-span-1 bg-card rounded-xl shadow-md p-5">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <i class="fa fa-table mr-2 text-primary"></i>100次实验结果
+                </h2>
                 
-                <div id="result-grid" class="result-grid mb-6">
-                    <!-- JS 生成 -->
+                <div class="overflow-auto max-h-[500px] mb-4">
+                    <table id="coinTable" class="coin-table w-full">
+                        <tbody>
+                            <!-- 硬币结果将在这里动态生成 -->
+                        </tbody>
+                    </table>
                 </div>
 
-                <div class="flex justify-center gap-8">
-                    <div class="text-center">
-                        <div id="heads-count" class="text-5xl font-bold text-red-500">50</div>
-                        <div class="text-sm text-gray-500">正面</div>
-                    </div>
-                    <div class="text-center">
-                        <div id="tails-count" class="text-5xl font-bold text-blue-500">50</div>
-                        <div class="text-sm text-gray-500">反面</div>
+                <!-- 概率赔率设置 -->
+                <div class="bg-gray-50 rounded-lg p-4 mt-4">
+                    <h3 class="font-bold text-gray-700 mb-2">游戏规则</h3>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-win rounded-full mr-2"></span>
+                            <span>正面：50% 概率，净赔率 2</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="w-3 h-3 bg-lose rounded-full mr-2"></span>
+                            <span>反面：50% 概率，输掉本金</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 右侧：策略与图表 -->
-            <div class="col-span-12 lg:col-span-7 space-y-6">
-                <!-- 策略对比 -->
-                <div class="bg-white rounded-3xl shadow-lg p-6">
-                    <h2 class="text-xl font-semibold mb-4">策略表现对比</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="strategy-cards">
-                        <!-- JS 生成 -->
+            <!-- 右侧：统计和图表 -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 结果统计和策略对比 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 结果统计饼图 -->
+                    <div class="bg-card rounded-xl shadow-md p-5">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                            <i class="fa fa-pie-chart mr-2 text-primary"></i>结果统计
+                        </h2>
+                        <div class="h-64">
+                            <canvas id="pieChart"></canvas>
+                        </div>
+                        <div id="statsText" class="text-center mt-4 text-lg font-semibold">
+                            正面: 50 | 反面: 50
+                        </div>
+                    </div>
+
+                    <!-- 策略对比 -->
+                    <div class="bg-card rounded-xl shadow-md p-5">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                            <i class="fa fa-bar-chart mr-2 text-primary"></i>不同仓位策略对比
+                        </h2>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                            <div class="strategy-card bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-600">策略1<br>保守</div>
+                                <div class="text-xs text-gray-500">下注比例: 1%</div>
+                                <div id="strategy1" class="text-xl font-bold text-green-600 mt-1">1.63x</div>
+                            </div>
+                            <div class="strategy-card bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-600">策略10<br>保守</div>
+                                <div class="text-xs text-gray-500">下注比例: 10%</div>
+                                <div id="strategy10" class="text-xl font-bold text-yellow-600 mt-1">46.90x</div>
+                            </div>
+                            <div class="strategy-card bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-600">策略20<br>偏优</div>
+                                <div class="text-xs text-gray-500">下注比例: 20%</div>
+                                <div id="strategy20" class="text-xl font-bold text-orange-600 mt-1">289.00x</div>
+                            </div>
+                            <div class="strategy-card bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-600">策略25<br>理论最优</div>
+                                <div class="text-xs text-gray-500">下注比例: 25%</div>
+                                <div id="strategy25" class="text-xl font-bold text-red-600 mt-1">361.10x</div>
+                            </div>
+                            <div class="strategy-card bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-600">策略30<br>偏高</div>
+                                <div class="text-xs text-gray-500">下注比例: 30%</div>
+                                <div id="strategy30" class="text-xl font-bold text-red-600 mt-1">289.00x</div>
+                            </div>
+                            <div class="strategy-card bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-600">策略50<br>激进</div>
+                                <div class="text-xs text-gray-500">下注比例: 50%</div>
+                                <div id="strategy50" class="text-xl font-bold text-gray-600 mt-1">1.00x</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 饼图 + 增长曲线 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- 饼图 -->
-                    <div class="bg-white rounded-3xl shadow-lg p-6">
-                        <h3 class="font-medium mb-3">正反面比例</h3>
-                        <canvas id="pieChart" width="300" height="300"></canvas>
-                    </div>
-                    
-                    <!-- 最终增长倍数 -->
-                    <div class="bg-white rounded-3xl shadow-lg p-6">
-                        <h3 class="font-medium mb-3">最终积分增长倍数</h3>
-                        <canvas id="growthChart" width="300" height="300"></canvas>
+                <!-- 最终积分增长倍数折线图 -->
+                <div class="bg-card rounded-xl shadow-md p-5">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                        <i class="fa fa-line-chart mr-2 text-primary"></i>最终积分增长倍数
+                    </h2>
+                    <div class="h-64">
+                        <canvas id="growthChart"></canvas>
                     </div>
                 </div>
 
                 <!-- 账户总积分曲线 -->
-                <div class="bg-white rounded-3xl shadow-lg p-6">
-                    <h3 class="font-medium mb-3">账户总积分曲线</h3>
-                    <canvas id="equityChart" height="180"></canvas>
+                <div class="bg-card rounded-xl shadow-md p-5">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                        <i class="fa fa-area-chart mr-2 text-primary"></i>账户总积分曲线
+                    </h2>
+                    <div class="h-80">
+                        <canvas id="portfolioChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- 底部信息 -->
-        <div class="mt-8 bg-white rounded-3xl shadow p-6 text-sm">
-            <div class="grid grid-cols-3 gap-6">
+        <!-- 凯利公式：原理 + 完整数学推导 + 游戏应用 -->
+        <div class="mt-8 bg-card rounded-xl shadow-md p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                <i class="fa fa-calculator mr-2 text-primary"></i>凯利公式 — 完整原理、数学推导 & 硬币游戏落地应用
+            </h2>
+            
+            <div class="space-y-8 text-gray-700 leading-relaxed">
+                <!-- 一、基础定义与场景设定 -->
                 <div>
-                    <div class="text-gray-500">正面概率</div>
-                    <div class="text-2xl font-bold">50%</div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">一、场景与变量定义（适配当前硬币游戏）</h3>
+                    <p>本游戏为<strong>重复独立博弈</strong>：反复抛硬币，每次仓位按当前总资产固定比例下注。</p>
+                    <ul class="list-disc list-inside ml-4 mt-2 space-y-1">
+                        <li><strong>p</strong>：获胜概率（正面） = 0.5</li>
+                        <li><strong>q</strong>：失败概率（反面） = \(1-p = 0.5\)</li>
+                        <li><strong>b</strong>：净赔率 = 2（下注1份，赢了额外赚2份，总资产变为 \(1+2f\)）</li>
+                        <li><strong>f</strong>：下注比例（待求最优仓位，\(0 \le f \le 1\)）</li>
+                        <li>赢后资产系数：\(1 + b f\)</li>
+                        <li>输后资产系数：\(1 - f\)（输掉本次下注金额）</li>
+                    </ul>
                 </div>
-                <div>
-                    <div class="text-gray-500">赔率</div>
-                    <div class="text-2xl font-bold">2x / -1x</div>
+
+                <!-- 二、凯利公式完整数学推导（核心新增） -->
+                <div class="derive-box">
+                    <h3 class="text-xl font-bold text-primary mb-4">二、凯利公式 完整数学推导过程</h3>
+                    <p class="mb-3">凯利准则目标：<strong>最大化长期资本几何平均增长率</strong>。</p>
+
+                    <div class="step-item">
+                        <strong>步骤1：定义单轮资产增长因子</strong>
+                        <p>单次游戏后，资产的期望对数收益率（几何增长用对数求解更简便）：</p>
+                        <div class="formula">
+                            G(f) = \(p \cdot \ln(1+bf) + q \cdot \ln(1-f)\)
+                        </div>
+                        <p>G(f)：每一轮的对数增长率；最大化 G(f) 等价于最大化长期总资产。</p>
+                    </div>
+
+                    <div class="step-item">
+                        <strong>步骤2：对 f 求导，找极值点</strong>
+                        <p>连续可导函数最大值出现在一阶导数 = 0 处：</p>
+                        <div class="formula">
+                            \(G'(f) = \dfrac{pb}{1+bf} - \dfrac{q}{1-f} = 0\)
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <strong>步骤3：解方程化简</strong>
+                        <p>令导数等于 0，移项：</p>
+                        <div class="formula">
+                            \(\dfrac{pb}{1+bf} = \dfrac{q}{1-f}\)
+                        </div>
+                        <p>交叉相乘：</p>
+                        <div class="formula">
+                            \(pb(1-f) = q(1+bf)\)
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <strong>步骤4：展开并整理含 f 项</strong>
+                        <div class="formula">
+                            \(pb - pbf = q + qbf\)
+                        </div>
+                        <div class="formula">
+                            \(pb - q = pbf + qbf\)
+                        </div>
+                        <div class="formula">
+                            \(pb - q = bf(p+q)\)
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <strong>步骤5：利用概率性质 \(p+q=1\) 最终化简</strong>
+                        <p>因为获胜+失败概率总和为1：\(p+q=1\)</p>
+                        <div class="formula">
+                            \(pb - q = bf\)
+                        </div>
+                        <p>解出最优下注比例 \(f^*\)：</p>
+                        <div class="formula">
+                            \(\boldsymbol{f^* = \dfrac{bp - q}{b}}\)
+                        </div>
+                        <p>✅ 至此，<strong>标准凯利公式推导完成</strong>。</p>
+                    </div>
                 </div>
+
+                <!-- 三、代入本游戏数值计算最优仓位 -->
+                <div class="derive-box">
+                    <h3 class="text-xl font-bold text-primary mb-4">三、代入硬币游戏参数，算出理论最优仓位</h3>
+                    <p>已知：\(p=0.5,\ q=0.5,\ b=2\)</p>
+                    <div class="formula">
+                        \(f^* = \dfrac{bp - q}{b} 
+                        = \dfrac{2 \times 0.5 - 0.5}{2}
+                        = \dfrac{1 - 0.5}{2}
+                        = \dfrac{0.5}{2}
+                        = 0.25\)
+                    </div>
+                    <p class="mt-3 text-lg font-semibold">结论：本游戏<strong>理论最优仓位 = 25%</strong>，和页面模拟结果完全对应。</p>
+                </div>
+
+                <!-- 四、两种简化验证（辅助理解） -->
                 <div>
-                    <div class="text-gray-500">当前回合</div>
-                    <div id="round-info" class="text-2xl font-bold text-blue-600">100</div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">四、简化场景验证（一赢一亏）</h3>
+                    <p>取最典型场景：一轮赢、一轮亏，两轮后总资产：</p>
+                    <div class="formula">
+                        \(F(f) = (1+2f)(1-f) = 1 + f - 2f^2\)
+                    </div>
+                    <p>这是开口向下二次函数，求最大值：求导 \(F'(f)=1-4f=0\)</p>
+                    <div class="formula">
+                        \(1-4f = 0 \implies f=0.25\)
+                    </div>
+                    <p>再次证明：25% 是局部最大值仓位。</p>
+                </div>
+
+                <!-- 五、不同仓位收益对比 -->
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">五、各仓位 100 轮理论收益对比</h3>
+                    <p>假设100次游戏：50次正面、50次反面，初始资产=1</p>
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>下注比例 f</th>
+                                <th>赢系数 \(1+2f\)</th>
+                                <th>输系数 \(1-f\)</th>
+                                <th>100轮后总倍数</th>
+                                <th>评价</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1%</td>
+                                <td>1.02</td>
+                                <td>0.99</td>
+                                <td>\(1.02^{50} \times 0.99^{50} \approx 1.64\)</td>
+                                <td class="text-green-600">极安全，收益低</td>
+                            </tr>
+                            <tr>
+                                <td>10%</td>
+                                <td>1.20</td>
+                                <td>0.90</td>
+                                <td>\(1.20^{50} \times 0.90^{50} \approx 46.9\)</td>
+                                <td class="text-yellow-600">稳健，收益一般</td>
+                            </tr>
+                            <tr class="bg-blue-50 font-bold">
+                                <td>25%</td>
+                                <td>1.50</td>
+                                <td>0.75</td>
+                                <td>\(1.50^{50} \times 0.75^{50} \approx 361\)</td>
+                                <td class="text-blue-600">理论最优，收益最高</td>
+                            </tr>
+                            <tr>
+                                <td>30%</td>
+                                <td>1.60</td>
+                                <td>0.70</td>
+                                <td>\(1.60^{50} \times 0.70^{50} \approx 289\)</td>
+                                <td class="text-orange-600">仓位偏高，收益回落</td>
+                            </tr>
+                            <tr>
+                                <td>50%</td>
+                                <td>2.00</td>
+                                <td>0.50</td>
+                                <td>\(2.00^{50} \times 0.50^{50} = 1\)</td>
+                                <td class="text-red-600">不赚不亏，浪费优势</td>
+                            </tr>
+                            <tr>
+                                <td>100%</td>
+                                <td>3.00</td>
+                                <td>0.00</td>
+                                <td>0</td>
+                                <td class="text-red-600">直接破产</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 六、结合页面图表理解 -->
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-3">六、推导结果与页面图表对应解读</h3>
+                    <ol class="list-decimal list-inside ml-4 space-y-2">
+                        <li><strong>积分增长倍数折线图</strong>：曲线顶点稳定在 25% 附近，对应公式求出的最优解。</li>
+                        <li><strong>账户资金曲线</strong>：蓝色25%仓位曲线长期领先，波动大于保守仓、远优于激进仓。</li>
+                        <li><strong>仓位卡片数据</strong>：每次刷新随机结果，25%仓位几乎都是全场最高收益。</li>
+                    </ol>
+                </div>
+
+                <!-- 七、实战使用提醒 -->
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-5">
+                    <h3 class="text-xl font-bold text-yellow-800 mb-3">七、实战应用提醒（股票/投资场景）</h3>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li>凯利公式<strong>仅适用于正期望、可重复博弈</strong>；负期望游戏最优解是：不参与。</li>
+                        <li>现实投资中胜率、赔率无法精确预知，建议使用<strong>半凯利（f*/2）</strong>降低回撤。</li>
+                        <li>仓位超过凯利最优值后，长期收益必然下降，风险指数上升。</li>
+                        <li>核心思想：<strong>控制仓位 = 控制寿命，活下来才能享受复利</strong>。</li>
+                    </ul>
                 </div>
             </div>
+        </div>
+
+        <!-- 页脚 -->
+        <div class="mt-8 text-center text-gray-500 text-sm">
+            <p>本页面包含凯利公式完整数学推导 + 硬币游戏模拟，直观展示仓位、概率、赔率对长期收益的影响</p>
         </div>
     </div>
 
     <script>
-        let pieChart, growthChart, equityChart;
-        
-        // 模拟策略
-        const strategies = [
-            { name: "保守策略", bet: 1, color: "#10b981", growth: 1.63 },
-            { name: "策略10", bet: 10, color: "#eab308", growth: 46.9 },
-            { name: "策略20", bet: 20, color: "#f97316", growth: 289 },
-            { name: "策略25", bet: 25, color: "#ef4444", growth: 361.1 },
-            { name: "策略30", bet: 30, color: "#ec4899", growth: 289 },
-            { name: "激进50", bet: 50, color: "#8b5cf6", growth: 1.0 },
-            { name: "激进100", bet: 100, color: "#06b67f", growth: 0.0 }
-        ];
+        // 全局变量
+        let coinResults = [];
+        let pieChart, growthChart, portfolioChart;
+        const strategies = [1, 10, 20, 25, 30, 50];
 
-        function createResultGrid(results) {
-            const container = document.getElementById('result-grid');
-            container.innerHTML = '';
-            
-            results.forEach((isHeads, i) => {
-                const div = document.createElement('div');
-                div.className = `text-center py-2 rounded-xl text-xs font-medium ${isHeads ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`;
-                div.textContent = isHeads ? '正' : '反';
-                container.appendChild(div);
-            });
-        }
-
-        function createStrategyCards() {
-            const container = document.getElementById('strategy-cards');
-            container.innerHTML = '';
-            
-            strategies.forEach(strategy => {
-                const div = document.createElement('div');
-                div.className = `strategy-card bg-gray-50 border border-gray-100 rounded-2xl p-4`;
-                div.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <div class="font-semibold">${strategy.name}</div>
-                            <div class="text-xs text-gray-500">下注 ${strategy.bet}%</div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-lg font-bold text-emerald-600">${strategy.growth.toFixed(1)}x</div>
-                            <div class="text-[10px] text-emerald-600">增长倍数</div>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        }
+        document.addEventListener('DOMContentLoaded', function() {
+            runSimulation();
+            document.getElementById('refreshBtn').addEventListener('click', runSimulation);
+        });
 
         function runSimulation() {
-            // 生成100次随机结果
-            const results = [];
-            let heads = 0;
-            
+            coinResults = [];
             for (let i = 0; i < 100; i++) {
-                const isHeads = Math.random() < 0.5;
-                results.push(isHeads);
-                if (isHeads) heads++;
+                coinResults.push(Math.random() < 0.5 ? '正面' : '反面');
             }
-            
-            const tails = 100 - heads;
-            
-            // 更新计数
-            document.getElementById('heads-count').textContent = heads;
-            document.getElementById('tails-count').textContent = tails;
-            
-            // 显示结果网格
-            createResultGrid(results);
-            
-            // 更新饼图
-            updatePieChart(heads, tails);
-            
-            // 更新增长曲线
-            updateGrowthChart();
-            
-            // 更新权益曲线
-            updateEquityChart(results);
-            
-            // 随机显示回合
-            document.getElementById('round-info').textContent = Math.floor(Math.random() * 30) + 70;
+            updateCoinTable();
+            updatePieChart();
+            const strategyReturns = calculateAllStrategies();
+            updateStrategyCards(strategyReturns);
+            updateGrowthChart(strategyReturns);
+            updatePortfolioChart();
         }
 
-        function updatePieChart(heads, tails) {
-            if (pieChart) pieChart.destroy();
-            
-            const ctx = document.getElementById('pieChart').getContext('2d');
-            pieChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['正面', '反面'],
-                    datasets: [{
-                        data: [heads, tails],
-                        backgroundColor: ['#f43f5e', '#3b82f6'],
-                        borderWidth: 0,
-                        borderColor: '#ffffff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    cutout: '65%',
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { boxWidth: 12, padding: 20, font: { size: 14 } }
-                        }
-                    }
+        function updateCoinTable() {
+            const tableBody = document.getElementById('coinTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = '';
+            for (let i = 0; i < 100; i += 5) {
+                const row = document.createElement('tr');
+                const numCell = document.createElement('td');
+                numCell.textContent = i + 5;
+                numCell.className = 'font-semibold bg-gray-100';
+                row.appendChild(numCell);
+                for (let j = 0; j < 5; j++) {
+                    const cell = document.createElement('td');
+                    const res = coinResults[i + j];
+                    cell.textContent = res;
+                    cell.className = res === '正面' ? 'coin-head' : 'coin-tail';
+                    row.appendChild(cell);
                 }
-            });
+                tableBody.appendChild(row);
+            }
+        }
+
+        function updatePieChart() {
+            const heads = coinResults.filter(r => r === '正面').length;
+            const tails = coinResults.filter(r => r === '反面').length;
+            document.getElementById('statsText').textContent = `正面: ${heads} | 反面: ${tails}`;
+            const data = {
+                labels: ['正面', '反面'],
+                datasets: [{
+                    data: [heads, tails],
+                    backgroundColor: ['#fbbf24', '#3b82f6'],
+                    borderColor: ['#f59e0b', '#2563eb'],
+                    borderWidth: 2
+                }]
+            };
+            if (pieChart) {
+                pieChart.data = data;
+                pieChart.update();
+            } else {
+                const ctx = document.getElementById('pieChart').getContext('2d');
+                pieChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                });
+            }
+        }
+
+        function calculateStrategy(betPercentage) {
+            let balance = 100;
+            const frac = betPercentage / 100;
+            for (const res of coinResults) {
+                const bet = balance * frac;
+                if (res === '正面') {
+                    balance += bet * 2;
+                } else {
+                    balance -= bet;
+                }
+                if (balance < 0.01) balance = 0;
+            }
+            return balance / 100;
+        }
+
+        function calculateAllStrategies() {
+            const ret = {};
+            for (let s of strategies) ret[s] = calculateStrategy(s);
+            return ret;
+        }
+
+        function updateStrategyCards(returns) {
+            for (let s of strategies) {
+                const el = document.getElementById(`strategy${s}`);
+                if (el) el.textContent = returns[s].toFixed(2) + 'x';
+            }
         }
 
         function updateGrowthChart() {
-            if (growthChart) growthChart.destroy();
-            
-            const ctx = document.getElementById('growthChart').getContext('2d');
-            growthChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: [1, 10, 20, 25, 30, 50, 100],
-                    datasets: [{
-                        label: '增长倍数',
-                        data: [1.63, 46.9, 289, 361.1, 289, 1.0, 0.0],
+            const labels = [];
+            const data = [];
+            for (let i = 1; i <= 100; i++) {
+                labels.push(i);
+                data.push(calculateStrategy(i));
+            }
+            const chartData = {
+                labels: labels,
+                datasets: [{
+                    label: '积分增长倍数',
+                    data: data,
+                    borderColor: '#1e40af',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 0
+                }]
+            };
+            if (growthChart) {
+                growthChart.data = chartData;
+                growthChart.update();
+            } else {
+                const ctx = document.getElementById('growthChart').getContext('2d');
+                growthChart = new Chart(ctx, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { title: { display: true, text: '下注比例 (%)' } },
+                            y: { title: { display: true, text: '最终积分倍数' }, beginAtZero: true }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+        }
+
+        function calculatePortfolioHistory(percent) {
+            let bal = 100;
+            const hist = [bal];
+            const f = percent / 100;
+            for (let res of coinResults) {
+                const bet = bal * f;
+                if (res === '正面') bal += bet * 2;
+                else bal -= bet;
+                if (bal < 0.01) bal = 0;
+                hist.push(bal);
+            }
+            return hist;
+        }
+
+        function updatePortfolioChart() {
+            const labels = Array.from({length: 100}, (_, i) => i + 1);
+            const c1 = calculatePortfolioHistory(1);
+            const c25 = calculatePortfolioHistory(25);
+            const c50 = calculatePortfolioHistory(50);
+            const data = {
+                labels: labels,
+                datasets: [
+                    {
+                        label: `保守 1% = ${c1[c1.length-1].toFixed(2)}`,
+                        data: c1,
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        fill: false
+                    },
+                    {
+                        label: `最优 25% = ${c25[c25.length-1].toFixed(2)}`,
+                        data: c25,
                         borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.4,
-                        borderWidth: 3,
-                        pointRadius: 5,
-                        pointBackgroundColor: '#ffffff',
-                        pointBorderWidth: 3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
+                        borderWidth: 2,
+                        fill: false
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#f1f5f9' }
-                        },
-                        x: {
-                            grid: { color: '#f1f5f9' }
+                    {
+                        label: `激进 50% = ${c50[c50.length-1].toFixed(2)}`,
+                        data: c50,
+                        borderColor: '#ef4444',
+                        borderWidth: 2,
+                        fill: false
+                    }
+                ]
+            };
+            if (portfolioChart) {
+                portfolioChart.data = data;
+                portfolioChart.update();
+            } else {
+                const ctx = document.getElementById('portfolioChart').getContext('2d');
+                portfolioChart = new Chart(ctx, {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { title: { display: true, text: '投掷次数' } },
+                            y: { title: { display: true, text: '账户积分(初始=100)' }, beginAtZero: true }
                         }
                     }
-                }
-            });
+                });
+            }
         }
-
-        function updateEquityChart(results) {
-            if (equityChart) equityChart.destroy();
-            
-            let conservative = 100;
-            let aggressive = 100;
-            let best = 100;
-            
-            const consData = [100];
-            const bestData = [100];
-            const aggData = [100];
-            
-            results.forEach(isHeads => {
-                // 保守策略 (1%)
-                conservative = conservative * (isHeads ? 1.01 : 0.99);
-                consData.push(Math.max(10, conservative));
-                
-                // 最优策略模拟
-                best = best * (isHeads ? 1.08 : 0.92);
-                bestData.push(Math.max(10, best));
-                
-                // 激进策略
-                aggressive = aggressive * (isHeads ? 1.25 : 0.5);
-                aggData.push(Math.max(10, aggressive));
-            });
-            
-            const ctx = document.getElementById('equityChart').getContext('2d');
-            equityChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Array.from({length: 101}, (_, i) => i),
-                    datasets: [
-                        {
-                            label: '保守策略',
-                            data: consData,
-                            borderColor: '#10b981',
-                            borderWidth: 2.5,
-                            tension: 0.3
-                        },
-                        {
-                            label: '最佳策略',
-                            data: bestData,
-                            borderColor: '#3b82f6',
-                            borderWidth: 3,
-                            tension: 0.3
-                        },
-                        {
-                            label: '激进策略',
-                            data: aggData,
-                            borderColor: '#ef4444',
-                            borderWidth: 2,
-                            tension: 0.3
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            align: 'end'
-                        }
-                    },
-                    scales: {
-                        y: { 
-                            beginAtZero: true,
-                            grid: { color: '#f1f5f9' }
-                        },
-                        x: { 
-                            grid: { color: '#f1f5f9' },
-                            ticks: { maxTicksLimit: 10 }
-                        }
-                    },
-                    elements: {
-                        point: { radius: 0 }
-                    }
-                }
-            });
-        }
-
-        // 初始化
-        window.onload = () => {
-            createStrategyCards();
-            // 首次运行
-            setTimeout(() => {
-                runSimulation();
-            }, 600);
-        };
     </script>
 </body>
 </html>
