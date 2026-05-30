@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>硬币投注模拟器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        .coin {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            transition: all 0.4s;
+        }
+        .heads { background: linear-gradient(135deg, #f8fafc, #e2e8f0); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+        .tails { background: linear-gradient(135deg, #1e40af, #3b82f6); color: white; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(10, minmax(0, 1fr));
+            gap: 4px;
+        }
+        .strategy-card {
+            transition: all 0.3s;
+        }
+        .strategy-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-7xl mx-auto p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">🎲 硬币投注模拟器</h1>
+            <button onclick="runSimulation()" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium flex items-center gap-2">
+                <span>🔄 运行100次模拟</span>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-12 gap-6">
+            <!-- 左侧：投币结果 -->
+            <div class="col-span-12 lg:col-span-5 bg-white rounded-3xl shadow-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">投币结果 (100次)</h2>
+                    <div class="flex gap-4 text-sm">
+                        <div class="flex items-center gap-1">
+                            <div class="w-3 h-3 bg-red-400 rounded"></div>
+                            <span>正面</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <div class="w-3 h-3 bg-blue-500 rounded"></div>
+                            <span>反面</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="result-grid" class="result-grid mb-6">
+                    <!-- JS 生成 -->
+                </div>
+
+                <div class="flex justify-center gap-8">
+                    <div class="text-center">
+                        <div id="heads-count" class="text-5xl font-bold text-red-500">50</div>
+                        <div class="text-sm text-gray-500">正面</div>
+                    </div>
+                    <div class="text-center">
+                        <div id="tails-count" class="text-5xl font-bold text-blue-500">50</div>
+                        <div class="text-sm text-gray-500">反面</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：策略与图表 -->
+            <div class="col-span-12 lg:col-span-7 space-y-6">
+                <!-- 策略对比 -->
+                <div class="bg-white rounded-3xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4">策略表现对比</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="strategy-cards">
+                        <!-- JS 生成 -->
+                    </div>
+                </div>
+
+                <!-- 饼图 + 增长曲线 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 饼图 -->
+                    <div class="bg-white rounded-3xl shadow-lg p-6">
+                        <h3 class="font-medium mb-3">正反面比例</h3>
+                        <canvas id="pieChart" width="300" height="300"></canvas>
+                    </div>
+                    
+                    <!-- 最终增长倍数 -->
+                    <div class="bg-white rounded-3xl shadow-lg p-6">
+                        <h3 class="font-medium mb-3">最终积分增长倍数</h3>
+                        <canvas id="growthChart" width="300" height="300"></canvas>
+                    </div>
+                </div>
+
+                <!-- 账户总积分曲线 -->
+                <div class="bg-white rounded-3xl shadow-lg p-6">
+                    <h3 class="font-medium mb-3">账户总积分曲线</h3>
+                    <canvas id="equityChart" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部信息 -->
+        <div class="mt-8 bg-white rounded-3xl shadow p-6 text-sm">
+            <div class="grid grid-cols-3 gap-6">
+                <div>
+                    <div class="text-gray-500">正面概率</div>
+                    <div class="text-2xl font-bold">50%</div>
+                </div>
+                <div>
+                    <div class="text-gray-500">赔率</div>
+                    <div class="text-2xl font-bold">2x / -1x</div>
+                </div>
+                <div>
+                    <div class="text-gray-500">当前回合</div>
+                    <div id="round-info" class="text-2xl font-bold text-blue-600">100</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let pieChart, growthChart, equityChart;
+        
+        // 模拟策略
+        const strategies = [
+            { name: "保守策略", bet: 1, color: "#10b981", growth: 1.63 },
+            { name: "策略10", bet: 10, color: "#eab308", growth: 46.9 },
+            { name: "策略20", bet: 20, color: "#f97316", growth: 289 },
+            { name: "策略25", bet: 25, color: "#ef4444", growth: 361.1 },
+            { name: "策略30", bet: 30, color: "#ec4899", growth: 289 },
+            { name: "激进50", bet: 50, color: "#8b5cf6", growth: 1.0 },
+            { name: "激进100", bet: 100, color: "#06b67f", growth: 0.0 }
+        ];
+
+        function createResultGrid(results) {
+            const container = document.getElementById('result-grid');
+            container.innerHTML = '';
+            
+            results.forEach((isHeads, i) => {
+                const div = document.createElement('div');
+                div.className = `text-center py-2 rounded-xl text-xs font-medium ${isHeads ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`;
+                div.textContent = isHeads ? '正' : '反';
+                container.appendChild(div);
+            });
+        }
+
+        function createStrategyCards() {
+            const container = document.getElementById('strategy-cards');
+            container.innerHTML = '';
+            
+            strategies.forEach(strategy => {
+                const div = document.createElement('div');
+                div.className = `strategy-card bg-gray-50 border border-gray-100 rounded-2xl p-4`;
+                div.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-semibold">${strategy.name}</div>
+                            <div class="text-xs text-gray-500">下注 ${strategy.bet}%</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-bold text-emerald-600">${strategy.growth.toFixed(1)}x</div>
+                            <div class="text-[10px] text-emerald-600">增长倍数</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function runSimulation() {
+            // 生成100次随机结果
+            const results = [];
+            let heads = 0;
+            
+            for (let i = 0; i < 100; i++) {
+                const isHeads = Math.random() < 0.5;
+                results.push(isHeads);
+                if (isHeads) heads++;
+            }
+            
+            const tails = 100 - heads;
+            
+            // 更新计数
+            document.getElementById('heads-count').textContent = heads;
+            document.getElementById('tails-count').textContent = tails;
+            
+            // 显示结果网格
+            createResultGrid(results);
+            
+            // 更新饼图
+            updatePieChart(heads, tails);
+            
+            // 更新增长曲线
+            updateGrowthChart();
+            
+            // 更新权益曲线
+            updateEquityChart(results);
+            
+            // 随机显示回合
+            document.getElementById('round-info').textContent = Math.floor(Math.random() * 30) + 70;
+        }
+
+        function updatePieChart(heads, tails) {
+            if (pieChart) pieChart.destroy();
+            
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            pieChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['正面', '反面'],
+                    datasets: [{
+                        data: [heads, tails],
+                        backgroundColor: ['#f43f5e', '#3b82f6'],
+                        borderWidth: 0,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 12, padding: 20, font: { size: 14 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateGrowthChart() {
+            if (growthChart) growthChart.destroy();
+            
+            const ctx = document.getElementById('growthChart').getContext('2d');
+            growthChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [1, 10, 20, 25, 30, 50, 100],
+                    datasets: [{
+                        label: '增长倍数',
+                        data: [1.63, 46.9, 289, 361.1, 289, 1.0, 0.0],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: {
+                            grid: { color: '#f1f5f9' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateEquityChart(results) {
+            if (equityChart) equityChart.destroy();
+            
+            let conservative = 100;
+            let aggressive = 100;
+            let best = 100;
+            
+            const consData = [100];
+            const bestData = [100];
+            const aggData = [100];
+            
+            results.forEach(isHeads => {
+                // 保守策略 (1%)
+                conservative = conservative * (isHeads ? 1.01 : 0.99);
+                consData.push(Math.max(10, conservative));
+                
+                // 最优策略模拟
+                best = best * (isHeads ? 1.08 : 0.92);
+                bestData.push(Math.max(10, best));
+                
+                // 激进策略
+                aggressive = aggressive * (isHeads ? 1.25 : 0.5);
+                aggData.push(Math.max(10, aggressive));
+            });
+            
+            const ctx = document.getElementById('equityChart').getContext('2d');
+            equityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 101}, (_, i) => i),
+                    datasets: [
+                        {
+                            label: '保守策略',
+                            data: consData,
+                            borderColor: '#10b981',
+                            borderWidth: 2.5,
+                            tension: 0.3
+                        },
+                        {
+                            label: '最佳策略',
+                            data: bestData,
+                            borderColor: '#3b82f6',
+                            borderWidth: 3,
+                            tension: 0.3
+                        },
+                        {
+                            label: '激进策略',
+                            data: aggData,
+                            borderColor: '#ef4444',
+                            borderWidth: 2,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: 'end'
+                        }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: { 
+                            grid: { color: '#f1f5f9' },
+                            ticks: { maxTicksLimit: 10 }
+                        }
+                    },
+                    elements: {
+                        point: { radius: 0 }
+                    }
+                }
+            });
+        }
+
+        // 初始化
+        window.onload = () => {
+            createStrategyCards();
+            // 首次运行
+            setTimeout(() => {
+                runSimulation();
+            }, 600);
+        };
+    </script>
+</body>
+</html>
