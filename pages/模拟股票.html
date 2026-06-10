@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProTrade 模拟炒股平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        trade: {
+                            up: '#ef4444',    // 红色涨 (A股习惯)
+                            down: '#22c55e',  // 绿色跌
+                            dark: '#0f172a',
+                            light: '#f8fafc'
+                        }
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'flash-red': 'flashRed 0.5s ease-in-out',
+                        'flash-green': 'flashGreen 0.5s ease-in-out'
+                    },
+                    keyframes: {
+                        flashRed: {
+                            '0%, 100%': { backgroundColor: 'transparent' },
+                            '50%': { backgroundColor: 'rgba(239, 68, 68, 0.2)' }
+                        },
+                        flashGreen: {
+                            '0%, 100%': { backgroundColor: 'transparent' },
+                            '50%': { backgroundColor: 'rgba(34, 197, 94, 0.2)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #334155;
+        }
+        
+        .glass-effect {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        
+        .trade-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300 min-h-screen flex flex-col">
+
+    <!-- 顶部导航栏 -->
+    <nav class="sticky top-0 z-50 bg-white/80 dark:bg-slate-800/80 glass-effect border-b border-slate-200 dark:border-slate-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight">ProTrade</span>
+                    <span id="marketStatusBadge" class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full border border-green-200 dark:border-green-800">
+                        交易中
+                    </span>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        系统正常
+                    </div>
+                    <button onclick="toggleSettings()" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 资产概览卡片 -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- 可用资金 -->
+            <div class="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+                <div class="text-sm text-slate-500 dark:text-slate-400 mb-1">可用资金</div>
+                <div class="text-2xl font-bold font-mono text-slate-900 dark:text-white" id="availableFunds">¥100,000.00</div>
+                <div class="text-xs text-slate-400 mt-2">可立即交易</div>
+            </div>
+            
+            <!-- 总资产 -->
+            <div class="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+                <div class="text-sm text-slate-500 dark:text-slate-400 mb-1">总资产</div>
+                <div class="text-2xl font-bold font-mono text-blue-600 dark:text-blue-400" id="totalAssets">¥100,000.00</div>
+                <div class="text-xs text-slate-400 mt-2">资金+持仓市值</div>
+            </div>
+            
+            <!-- 持仓市值 -->
+            <div class="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+                <div class="text-sm text-slate-500 dark:text-slate-400 mb-1">持仓市值</div>
+                <div class="text-2xl font-bold font-mono text-slate-900 dark:text-white" id="positionValue">¥0.00</div>
+                <div class="text-xs text-slate-400 mt-2">当前持有股票价值</div>
+            </div>
+            
+            <!-- 当日盈亏 -->
+            <div class="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-transparent to-slate-100 dark:to-slate-700/30 rounded-bl-full"></div>
+                <div class="text-sm text-slate-500 dark:text-slate-400 mb-1">当日盈亏</div>
+                <div class="text-2xl font-bold font-mono" id="dailyPnL">¥0.00</div>
+                <div class="text-xs mt-2 flex items-center gap-1" id="dailyPnLPercent">
+                    <span>0.00%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主要内容区 -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 flex-1 w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- 左侧：行情表格 -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- 行情标题和搜索 -->
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                    <h2 class="text-lg font-semibold flex items-center gap-2">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        市场行情
+                    </h2>
+                    <div class="relative">
+                        <input type="text" id="stockSearch" placeholder="搜索股票代码/名称..." 
+                            class="pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-700 border-none rounded-lg text-sm focus:ring-2 focus:ring-blue-500 w-48 transition-all"
+                            oninput="filterStocks(this.value)">
+                        <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="px-6 py-3 font-medium">股票名称</th>
+                                <th class="px-6 py-3 font-medium text-right">最新价</th>
+                                <th class="px-6 py-3 font-medium text-right">涨跌幅</th>
+                                <th class="px-6 py-3 font-medium text-right">涨跌额</th>
+                                <th class="px-6 py-3 font-medium text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockTableBody" class="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                            <!-- 动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 持仓列表 -->
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                    <h2 class="text-lg font-semibold flex items-center gap-2">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                        我的持仓
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase text-slate-500 dark:text-slate-400">
+                                <th class="px-6 py-3">股票</th>
+                                <th class="px-6 py-3 text-right">持仓量</th>
+                                <th class="px-6 py-3 text-right">成本价</th>
+                                <th class="px-6 py-3 text-right">现价</th>
+                                <th class="px-6 py-3 text-right">盈亏</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positionTableBody" class="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                            <tr id="emptyPosition">
+                                <td colspan="5" class="px-6 py-8 text-center text-slate-400">
+                                    暂无持仓，快去交易吧
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：交易面板 -->
+        <div class="lg:col-span-1">
+            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 sticky top-24">
+                <div class="p-6 border-b border-slate-200 dark:border-slate-700">
+                    <h2 class="text-lg font-semibold mb-4">快速交易</h2>
+                    
+                    <!-- 买卖切换 -->
+                    <div class="flex rounded-lg bg-slate-100 dark:bg-slate-700 p-1 mb-6">
+                        <button onclick="setTradeType('buy')" id="buyBtn" class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all bg-white dark:bg-slate-600 shadow-sm text-trade-up">
+                            买入
+                        </button>
+                        <button onclick="setTradeType('sell')" id="sellBtn" class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+                            卖出
+                        </button>
+                    </div>
+
+                    <form id="tradeForm" onsubmit="executeTrade(event)" class="space-y-4">
+                        <!-- 股票代码 -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">股票代码</label>
+                            <div class="relative">
+                                <input type="text" id="tradeSymbol" required placeholder="如: 600519" 
+                                    class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg font-mono text-sm uppercase trade-input transition-colors"
+                                    oninput="updateTradePrice(this.value)">
+                                <div id="symbolPreview" class="absolute right-3 top-2.5 text-xs text-slate-400 hidden"></div>
+                            </div>
+                        </div>
+
+                        <!-- 价格类型 -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">价格类型</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="flex items-center justify-center px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20">
+                                    <input type="radio" name="priceType" value="market" checked class="hidden" onchange="togglePriceInput()">
+                                    <span class="text-sm">市价</span>
+                                </label>
+                                <label class="flex items-center justify-center px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-900/20">
+                                    <input type="radio" name="priceType" value="limit" class="hidden" onchange="togglePriceInput()">
+                                    <span class="text-sm">限价</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 价格输入 -->
+                        <div id="priceInputContainer" class="hidden">
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">委托价格</label>
+                            <input type="number" id="limitPrice" step="0.01" min="0.01" placeholder="0.00"
+                                class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg font-mono text-sm trade-input">
+                        </div>
+
+                        <!-- 数量 -->
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">交易数量</label>
+                            <div class="relative">
+                                <input type="number" id="tradeQuantity" required min="100" step="100" placeholder="100"
+                                    class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg font-mono text-sm trade-input"
+                                    oninput="calculateTotal()">
+                                <span class="absolute right-3 top-2.5 text-xs text-slate-400">股</span>
+                            </div>
+                            <div class="flex justify-between mt-1.5 text-xs text-slate-400">
+                                <span id="totalAmount">预计金额: ¥0.00</span>
+                                <button type="button" onclick="setMaxQuantity()" class="text-blue-500 hover:text-blue-600">全仓</button>
+                            </div>
+                        </div>
+
+                        <!-- 提交按钮 -->
+                        <button type="submit" id="submitTradeBtn" 
+                            class="w-full py-3 px-4 rounded-lg font-medium text-white shadow-lg shadow-red-500/30 bg-trade-up hover:bg-red-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                            <span>买入下单</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 最近交易记录 -->
+                <div class="px-6 py-4 bg-slate-50 dark:bg-slate-700/30 border-t border-slate-200 dark:border-slate-700">
+                    <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">最近成交</h3>
+                    <div id="recentTrades" class="space-y-2 max-h-40 overflow-y-auto text-xs">
+                        <div class="text-slate-400 text-center py-2">暂无成交记录</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部设置栏 -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-lg z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+                <span class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                    模拟环境
+                </span>
+                <span id="marketTime" class="font-mono">--:--:--</span>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="toggleTheme()" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm font-medium">
+                    <svg id="themeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                    </svg>
+                    <span id="themeText">深色模式</span>
+                </button>
+                
+                <button onclick="toggleMarketStatus()" id="marketToggleBtn" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm font-medium text-slate-600 dark:text-slate-300">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>暂停交易</span>
+                </button>
+                
+                <button onclick="clearAllData()" class="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 transition-colors text-sm font-medium">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    <span class="hidden sm:inline">清空记录</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置弹窗 -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all scale-95 opacity-0" id="settingsContent">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold">系统设置</h3>
+                <button onclick="toggleSettings()" class="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+                    <div>
+                        <div class="font-medium">涨跌颜色</div>
+                        <div class="text-xs text-slate-500">红涨绿跌 (A股习惯)</div>
+                    </div>
+                    <div class="w-12 h-6 bg-blue-600 rounded-full relative cursor-pointer">
+                        <div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+                    <div>
+                        <div class="font-medium">价格刷新</div>
+                        <div class="text-xs text-slate-500">实时模拟 (每3秒)</div>
+                    </div>
+                    <div class="w-12 h-6 bg-blue-600 rounded-full relative cursor-pointer">
+                        <div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50">
+                    <div>
+                        <div class="font-medium">音效提示</div>
+                        <div class="text-xs text-slate-500">成交时播放提示音</div>
+                    </div>
+                    <div class="w-12 h-6 bg-slate-200 dark:bg-slate-600 rounded-full relative cursor-pointer">
+                        <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400">
+                ProTrade 模拟交易系统 v1.0
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知Toast -->
+    <div id="toast" class="fixed top-20 right-4 z-50 transform translate-x-full transition-transform duration-300">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg p-4 flex items-center gap-3 min-w-[300px]">
+            <div id="toastIcon" class="w-8 h-8 rounded-full flex items-center justify-center bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <div>
+                <div id="toastTitle" class="font-medium text-sm">交易成功</div>
+                <div id="toastMessage" class="text-xs text-slate-500 dark:text-slate-400">买入 100 股</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 应用状态
+        const state = {
+            theme: 'light',
+            marketOpen: true,
+            currentTradeType: 'buy',
+            cash: 100000,
+            positions: {}, // { symbol: { quantity, avgPrice, name } }
+            trades: [],
+            stocks: [
+                { symbol: '600519', name: '贵州茅台', price: 1688.00, prevClose: 1670.00 },
+                { symbol: '000858', name: '五粮液', price: 145.60, prevClose: 142.30 },
+                { symbol: '300750', name: '宁德时代', price: 198.50, prevClose: 195.00 },
+                { symbol: '000333', name: '美的集团', price: 58.90, prevClose: 59.20 },
+                { symbol: '002594', name: '比亚迪', price: 245.80, prevClose: 238.50 },
+                { symbol: '600036', name: '招商银行', price: 32.15, prevClose: 32.40 },
+                { symbol: '000001', name: '平安银行', price: 11.28, prevClose: 11.15 },
+                { symbol: '300059', name: '东方财富', price: 15.66, prevClose: 15.20 },
+                { symbol: '600276', name: '恒瑞医药', price: 44.35, prevClose: 45.10 },
+                { symbol: '002415', name: '海康威视', price: 28.90, prevClose: 28.50 }
+            ]
+        };
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTime();
+            setInterval(updateTime, 1000);
+            renderStocks();
+            updateAssets();
+            simulatePriceChanges();
+            
+            // 检查系统主题偏好
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                toggleTheme();
+            }
+        });
+
+        // 更新时间
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('marketTime').textContent = now.toLocaleTimeString('zh-CN');
+        }
+
+        // 渲染股票列表
+        function renderStocks(filter = '') {
+            const tbody = document.getElementById('stockTableBody');
+            tbody.innerHTML = '';
+            
+            state.stocks.forEach(stock => {
+                if (filter && !stock.symbol.includes(filter) && !stock.name.includes(filter)) return;
+                
+                const change = stock.price - stock.prevClose;
+                const changePercent = (change / stock.prevClose) * 100;
+                const isUp = change >= 0;
+                const colorClass = isUp ? 'text-trade-up' : 'text-trade-down';
+                const bgClass = isUp ? 'bg-red-50 dark:bg-red-900/10' : 'bg-green-50 dark:bg-green-900/10';
+                
+                const row = document.createElement('tr');
+                row.className = `hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer group ${bgClass}`;
+                row.onclick = () => selectStock(stock.symbol);
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4">
+                        <div class="font-medium">${stock.name}</div>
+                        <div class="text-xs text-slate-500 font-mono">${stock.symbol}</div>
+                    </td>
+                    <td class="px-6 py-4 text-right font-mono font-medium ${colorClass}">
+                        ${stock.price.toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass} bg-opacity-10">
+                            ${isUp ? '+' : ''}${changePercent.toFixed(2)}%
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right font-mono ${colorClass}">
+                        ${isUp ? '+' : ''}${change.toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="event.stopPropagation(); quickTrade('${stock.symbol}', 'buy')" 
+                            class="text-xs px-3 py-1.5 rounded bg-trade-up/10 text-trade-up hover:bg-trade-up hover:text-white transition-colors mr-1">
+                            买
+                        </button>
+                        <button onclick="event.stopPropagation(); quickTrade('${stock.symbol}', 'sell')" 
+                            class="text-xs px-3 py-1.5 rounded bg-trade-down/10 text-trade-down hover:bg-trade-down hover:text-white transition-colors">
+                            卖
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 模拟价格变动
+        function simulatePriceChanges() {
+            setInterval(() => {
+                if (!state.marketOpen) return;
+                
+                state.stocks.forEach(stock => {
+                    const volatility = 0.002;
+                    const change = (Math.random() - 0.5) * 2 * volatility;
+                    stock.price = Math.max(0.01, stock.price * (1 + change));
+                });
+                renderStocks(document.getElementById('stockSearch').value);
+                updateAssets();
+            }, 3000);
+        }
+
+        // 更新资产数据
+        function updateAssets() {
+            let positionValue = 0;
+            let dailyPnL = 0;
+            
+            Object.entries(state.positions).forEach(([symbol, pos]) => {
+                const stock = state.stocks.find(s => s.symbol === symbol);
+                if (stock) {
+                    const marketValue = pos.quantity * stock.price;
+                    const costValue = pos.quantity * pos.avgPrice;
+                    const dayChange = pos.quantity * (stock.price - stock.prevClose);
+                    
+                    positionValue += marketValue;
+                    dailyPnL += dayChange;
+                }
+            });
+            
+            const totalAssets = state.cash + positionValue;
+            const totalCost = 100000; // 初始资金
+            const totalPnLPercent = ((totalAssets - totalCost) / totalCost) * 100;
+            
+            document.getElementById('availableFunds').textContent = `¥${state.cash.toLocaleString('zh-CN', {minimumFractionDigits: 2})}`;
+            document.getElementById('totalAssets').textContent = `¥${totalAssets.toLocaleString('zh-CN', {minimumFractionDigits: 2})}`;
+            document.getElementById('positionValue').textContent = `¥${positionValue.toLocaleString('zh-CN', {minimumFractionDigits: 2})}`;
+            
+            const pnlElement = document.getElementById('dailyPnL');
+            const pnlPercentElement = document.getElementById('dailyPnLPercent');
+            
+            pnlElement.textContent = `${dailyPnL >= 0 ? '+' : ''}¥${dailyPnL.toLocaleString('zh-CN', {minimumFractionDigits: 2})}`;
+            pnlElement.className = `text-2xl font-bold font-mono ${dailyPnL >= 0 ? 'text-trade-up' : 'text-trade-down'}`;
+            
+            pnlPercentElement.innerHTML = `
+                <span class="${dailyPnL >= 0 ? 'text-trade-up' : 'text-trade-down'}">
+                    ${dailyPnL >= 0 ? '↑' : '↓'} ${Math.abs(totalPnLPercent).toFixed(2)}%
+                </span>
+                <span class="text-slate-400">总盈亏</span>
+            `;
+            
+            renderPositions();
+        }
+
+        // 渲染持仓
+        function renderPositions() {
+            const tbody = document.getElementById('positionTableBody');
+            const hasPositions = Object.keys(state.positions).length > 0;
+            
+            if (!hasPositions) {
+                tbody.innerHTML = `
+                    <tr id="emptyPosition">
+                        <td colspan="5" class="px-6 py-8 text-center text-slate-400">
+                            暂无持仓，快去交易吧
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            Object.entries(state.positions).forEach(([symbol, pos]) => {
+                const stock = state.stocks.find(s => s.symbol === symbol);
+                if (!stock) return;
+                
+                const marketValue = pos.quantity * stock.price;
+                const costValue = pos.quantity * pos.avgPrice;
+                const pnl = marketValue - costValue;
+                const pnlPercent = (pnl / costValue) * 100;
+                const isProfit = pnl >= 0;
+                
+                const row = document.createElement('tr');
+                row.className = 'border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/20';
+                row.innerHTML = `
+                    <td class="px-6 py-3">
+                        <div class="font-medium text-sm">${pos.name}</div>
+                        <div class="text-xs text-slate-500 font-mono">${symbol}</div>
+                    </td>
+                    <td class="px-6 py-3 text-right font-mono text-sm">${pos.quantity}</td>
+                    <td class="px-6 py-3 text-right font-mono text-sm text-slate-600 dark:text-slate-400">¥${pos.avgPrice.toFixed(2)}</td>
+                    <td class="px-6 py-3 text-right font-mono text-sm font-medium">¥${stock.price.toFixed(2)}</td>
+                    <td class="px-6 py-3 text-right">
+                        <div class="font-mono text-sm ${isProfit ? 'text-trade-up' : 'text-trade-down'}">
+                            ${isProfit ? '+' : ''}${pnl.toFixed(2)}
+                        </div>
+                        <div class="text-xs ${isProfit ? 'text-trade-up' : 'text-trade-down'}">
+                            ${isProfit ? '+' : ''}${pnlPercent.toFixed(2)}%
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 交易功能
+        function setTradeType(type) {
+            state.currentTradeType = type;
+            const buyBtn = document.getElementById('buyBtn');
+            const sellBtn = document.getElementById('sellBtn');
+            const submitBtn = document.getElementById('submitTradeBtn');
+            
+            if (type === 'buy') {
+                buyBtn.className = 'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all bg-white dark:bg-slate-600 shadow-sm text-trade-up';
+                sellBtn.className = 'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200';
+                submitBtn.className = 'w-full py-3 px-4 rounded-lg font-medium text-white shadow-lg shadow-red-500/30 bg-trade-up hover:bg-red-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
+                submitBtn.innerHTML = '<span>买入下单</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>';
+            } else {
+                sellBtn.className = 'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all bg-white dark:bg-slate-600 shadow-sm text-trade-down';
+                buyBtn.className = 'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200';
+                submitBtn.className = 'w-full py-3 px-4 rounded-lg font-medium text-white shadow-lg shadow-green-500/30 bg-trade-down hover:bg-green-600 active:scale-[0.98] transition-all flex items-center justify-center gap-2';
+                submitBtn.innerHTML = '<span>卖出下单</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>';
+            }
+            calculateTotal();
+        }
+
+        function togglePriceInput() {
+            const isLimit = document.querySelector('input[name="priceType"]:checked').value === 'limit';
+            const container = document.getElementById('priceInputContainer');
+            if (isLimit) {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+            calculateTotal();
+        }
+
+        function selectStock(symbol) {
+            document.getElementById('tradeSymbol').value = symbol;
+            updateTradePrice(symbol);
+        }
+
+        function quickTrade(symbol, type) {
+            setTradeType(type);
+            selectStock(symbol);
+            document.getElementById('tradeQuantity').focus();
+        }
+
+        function updateTradePrice(symbol) {
+            const stock = state.stocks.find(s => s.symbol === symbol.toUpperCase());
+            const preview = document.getElementById('symbolPreview');
+            if (stock) {
+                preview.textContent = stock.name;
+                preview.classList.remove('hidden');
+                if (document.querySelector('input[name="priceType"]:checked').value === 'limit') {
+                    document.getElementById('limitPrice').value = stock.price.toFixed(2);
+                }
+            } else {
+                preview.classList.add('hidden');
+            }
+            calculateTotal();
+        }
+
+        function calculateTotal() {
+            const symbol = document.getElementById('tradeSymbol').value.toUpperCase();
+            const quantity = parseInt(document.getElementById('tradeQuantity').value) || 0;
+            const stock = state.stocks.find(s => s.symbol === symbol);
+            
+            if (stock && quantity > 0) {
+                const isLimit = document.querySelector('input[name="priceType"]:checked').value === 'limit';
+                let price = stock.price;
+                if (isLimit) {
+                    price = parseFloat(document.getElementById('limitPrice').value) || stock.price;
+                }
+                const total = price * quantity;
+                document.getElementById('totalAmount').textContent = `预计金额: ¥${total.toLocaleString('zh-CN', {minimumFractionDigits: 2})}`;
+            } else {
+                document.getElementById('totalAmount').textContent = '预计金额: ¥0.00';
+            }
+        }
+
+        function setMaxQuantity() {
+            const symbol = document.getElementById('tradeSymbol').value.toUpperCase();
+            const stock = state.stocks.find(s => s.symbol === symbol);
+            
+            if (state.currentTradeType === 'buy' && stock) {
+                const isLimit = document.querySelector('input[name="priceType"]:checked').value === 'limit';
+                let price = isLimit ? (parseFloat(document.getElementById('limitPrice').value) || stock.price) : stock.price;
+                const maxQty = Math.floor(state.cash / price / 100) * 100;
+                document.getElementById('tradeQuantity').value = maxQty > 0 ? maxQty : 100;
+            } else if (state.currentTradeType === 'sell' && state.positions[symbol]) {
+                document.getElementById('tradeQuantity').value = state.positions[symbol].quantity;
+            }
+            calculateTotal();
+        }
+
+        function executeTrade(e) {
+            e.preventDefault();
+            
+            if (!state.marketOpen) {
+                showToast('错误', '市场已关闭，无法交易', 'error');
+                return;
+            }
+            
+            const symbol = document.getElementById('tradeSymbol').value.toUpperCase();
+            const quantity = parseInt(document.getElementById('tradeQuantity').value);
+            const stock = state.stocks.find(s => s.symbol === symbol);
+            
+            if (!stock) {
+                showToast('错误', '股票代码不存在', 'error');
+                return;
+            }
+            
+            if (!quantity || quantity % 100 !== 0) {
+                showToast('错误', '交易数量必须是100的整数倍', 'error');
+                return;
+            }
+            
+            const isLimit = document.querySelector('input[name="priceType"]:checked').value === 'limit';
+            let price = stock.price;
+            if (isLimit) {
+                price = parseFloat(document.getElementById('limitPrice').value);
+                if (!price || price <= 0) {
+                    showToast('错误', '请输入有效的委托价格', 'error');
+                    return;
+                }
+            }
+            
+            const total = price * quantity;
+            
+            if (state.currentTradeType === 'buy') {
+                if (total > state.cash) {
+                    showToast('错误', '可用资金不足', 'error');
+                    return;
+                }
+                
+                // 执行买入
+                state.cash -= total;
+                if (!state.positions[symbol]) {
+                    state.positions[symbol] = {
+                        quantity: 0,
+                        avgPrice: 0,
+                        name: stock.name
+                    };
+                }
+                
+                const pos = state.positions[symbol];
+                const newTotalCost = pos.quantity * pos.avgPrice + total;
+                pos.quantity += quantity;
+                pos.avgPrice = newTotalCost / pos.quantity;
+                
+                addTradeRecord('买入', symbol, stock.name, quantity, price);
+                showToast('交易成功', `买入 ${quantity}股 ${stock.name}`, 'success');
+                
+            } else {
+                // 卖出
+                const pos = state.positions[symbol];
+                if (!pos || pos.quantity < quantity) {
+                    showToast('错误', '持仓数量不足', 'error');
+                    return;
+                }
+                
+                state.cash += total;
+                pos.quantity -= quantity;
+                if (pos.quantity === 0) {
+                    delete state.positions[symbol];
+                }
+                
+                addTradeRecord('卖出', symbol, stock.name, quantity, price);
+                showToast('交易成功', `卖出 ${quantity}股 ${stock.name}`, 'success');
+            }
+            
+            updateAssets();
+            document.getElementById('tradeForm').reset();
+            document.getElementById('symbolPreview').classList.add('hidden');
+            calculateTotal();
+        }
+
+        function addTradeRecord(type, symbol, name, quantity, price) {
+            const time = new Date().toLocaleTimeString('zh-CN');
+            const record = { type, symbol, name, quantity, price, time };
+            state.trades.unshift(record);
+            if (state.trades.length > 10) state.trades.pop();
+            
+            const container = document.getElementById('recentTrades');
+            const colorClass = type === '买入' ? 'text-trade-up' : 'text-trade-down';
+            
+            const div = document.createElement('div');
+            div.className = 'flex justify-between items-center p-2 rounded bg-white dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 animate-pulse-fast';
+            div.style.animation = 'none'; // 移除动画
+            div.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="font-medium ${colorClass}">${type}</span>
+                    <span class="text-slate-600 dark:text-slate-300">${name}</span>
+                </div>
+                <div class="text-right">
+                    <div class="font-mono">${quantity}股 @ ¥${price.toFixed(2)}</div>
+                    <div class="text-xs text-slate-400">${time}</div>
+                </div>
+            `;
+            
+            if (container.children[0]?.textContent.includes('暂无')) {
+                container.innerHTML = '';
+            }
+            container.insertBefore(div, container.firstChild);
+        }
+
+        // 系统功能
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.classList.toggle('dark');
+            state.theme = isDark ? 'dark' : 'light';
+            
+            document.getElementById('themeText').textContent = isDark ? '浅色模式' : '深色模式';
+            document.getElementById('themeIcon').innerHTML = isDark ? 
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>' :
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>';
+        }
+
+        function toggleMarketStatus() {
+            state.marketOpen = !state.marketOpen;
+            const badge = document.getElementById('marketStatusBadge');
+            const btn = document.getElementById('marketToggleBtn');
+            
+            if (state.marketOpen) {
+                badge.textContent = '交易中';
+                badge.className = 'px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full border border-green-200 dark:border-green-800';
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>暂停交易</span>';
+                showToast('市场状态', '交易已恢复', 'success');
+            } else {
+                badge.textContent = '已休市';
+                badge.className = 'px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 rounded-full border border-amber-200 dark:border-amber-800';
+                btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>恢复交易</span>';
+                showToast('市场状态', '交易已暂停', 'warning');
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('确定要清空所有交易记录和持仓吗？此操作不可恢复。')) {
+                state.cash = 100000;
+                state.positions = {};
+                state.trades = [];
+                updateAssets();
+                document.getElementById('recentTrades').innerHTML = '<div class="text-slate-400 text-center py-2">暂无成交记录</div>';
+                showToast('系统', '所有数据已重置', 'success');
+            }
+        }
+
+        function toggleSettings() {
+            const modal = document.getElementById('settingsModal');
+            const content = document.getElementById('settingsContent');
+            
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    content.classList.remove('scale-95', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            } else {
+                content.classList.remove('scale-100', 'opacity-100');
+                content.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function filterStocks(keyword) {
+            renderStocks(keyword);
+        }
+
+        function showToast(title, message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const titleEl = document.getElementById('toastTitle');
+            const msgEl = document.getElementById('toastMessage');
+            
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+            
+            if (type === 'error') {
+                icon.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400';
+                icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+            } else if (type === 'warning') {
+                icon.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400';
+                icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+            } else {
+                icon.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400';
+                icon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+            }
+            
+            toast.classList.remove('translate-x-full');
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+            }, 3000);
+        }
+
+        // 点击模态框外部关闭
+        document.getElementById('settingsModal').addEventListener('click', function(e) {
+            if (e.target === this) toggleSettings();
+        });
+    </script>
+</body>
+</html>
