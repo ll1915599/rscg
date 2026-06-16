@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+ <html lang="zh-CN">
+ <head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>💡 公式大师 - 金融数学公式小游戏</title>
+ <style>
+   * { box-sizing: border-box; margin: 0; padding: 0; }
+   body {
+     font-family: 'Segoe UI', sans-serif;
+     background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+     min-height: 100vh;
+     color: #fff;
+     overflow-x: hidden;
+   }
+   .stars {
+     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+     pointer-events: none; z-index: 0;
+     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Ccircle cx='50' cy='80' r='1' fill='white' opacity='0.6'/%3E%3Ccircle cx='150' cy='30' r='1.5' fill='white' opacity='0.4'/%3E%3Ccircle cx='280' cy='120' r='1' fill='white' opacity='0.7'/%3E%3Ccircle cx='320' cy='60' r='1' fill='white' opacity='0.5'/%3E%3Ccircle cx='80' cy='200' r='1.5' fill='white' opacity='0.3'/%3E%3Ccircle cx='200' cy='180' r='1' fill='white' opacity='0.6'/%3E%3Ccircle cx='370' cy='200' r='1' fill='white' opacity='0.4'/%3E%3Ccircle cx='100' cy='350' r='1' fill='white' opacity='0.5'/%3E%3Ccircle cx='250' cy='300' r='1.5' fill='white' opacity='0.3'/%3E%3Ccircle cx='350' cy='380' r='1' fill='white' opacity='0.6'/%3E%3C/svg%3E") repeat;
+   }
+   .container { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; padding: 20px; }
+   /* HEADER */
+   header { text-align: center; padding: 30px 0 20px; }
+   header h1 { font-size: 2.2em; background: linear-gradient(90deg, #f7971e, #ffd200, #f7971e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+   header p { color: #aaa; margin-top: 8px; font-size: 0.95em; }
+   /* SCORE BAR */
+   .score-bar {
+     display: flex; justify-content: space-between; align-items: center;
+     background: rgba(255,255,255,0.08); border-radius: 14px;
+     padding: 12px 20px; margin-bottom: 20px; backdrop-filter: blur(10px);
+     border: 1px solid rgba(255,255,255,0.1);
+   }
+   .score-item { text-align: center; }
+   .score-item .label { font-size: 0.7em; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+   .score-item .value { font-size: 1.5em; font-weight: bold; color: #ffd200; }
+   /* TABS */
+   .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+   .tab-btn {
+     flex: 1; min-width: 120px; padding: 10px; border: none; border-radius: 10px;
+     cursor: pointer; font-size: 0.85em; font-weight: 600; transition: all 0.3s;
+     background: rgba(255,255,255,0.08); color: #ccc; border: 1px solid rgba(255,255,255,0.1);
+   }
+   .tab-btn.active { background: linear-gradient(135deg, #f7971e, #ffd200); color: #1a1a2e; border-color: transparent; }
+   .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.15); }
+   /* CARDS */
+   .card {
+     background: rgba(255,255,255,0.07); border-radius: 16px;
+     border: 1px solid rgba(255,255,255,0.12); padding: 24px;
+     margin-bottom: 20px; backdrop-filter: blur(10px); transition: transform 0.2s;
+   }
+   .card:hover { transform: translateY(-2px); }
+   .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+   .card-icon { font-size: 2em; }
+   .card-title { font-size: 1.1em; font-weight: bold; color: #ffd200; }
+   .card-subtitle { font-size: 0.8em; color: #aaa; }
+   .formula-box {
+     background: rgba(0,0,0,0.4); border-radius: 10px; padding: 14px;
+     font-family: 'Courier New', monospace; font-size: 1.05em; color: #7efff5;
+     text-align: center; letter-spacing: 1px; border: 1px solid rgba(126,255,245,0.2);
+     margin: 12px 0;
+   }
+   .card p { color: #ccc; font-size: 0.9em; line-height: 1.7; margin-bottom: 10px; }
+   .tag { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.72em; font-weight: 600; margin-right: 6px; }
+   .tag-risk { background: rgba(255,100,100,0.2); color: #ff9090; border: 1px solid rgba(255,100,100,0.3); }
+   .tag-return { background: rgba(100,255,100,0.2); color: #90ff90; border: 1px solid rgba(100,255,100,0.3); }
+   .tag-pricing { background: rgba(100,100,255,0.2); color: #9090ff; border: 1px solid rgba(100,100,255,0.3); }
+   .tag-portfolio { background: rgba(255,200,100,0.2); color: #ffd270; border: 1px solid rgba(255,200,100,0.3); }
+   /* QUIZ GAME */
+   .quiz-section { display: none; }
+   .quiz-section.active { display: block; }
+   .explore-section { display: none; }
+   .explore-section.active { display: block; }
+   .calc-section { display: none; }
+   .calc-section.active { display: block; }
+   .question-card {
+     background: rgba(255,255,255,0.07); border-radius: 16px;
+     border: 1px solid rgba(255,255,255,0.12); padding: 28px;
+     margin-bottom: 20px;
+   }
+   .question-num { color: #aaa; font-size: 0.8em; margin-bottom: 8px; }
+   .question-text { font-size: 1.1em; line-height: 1.6; margin-bottom: 20px; color: #f0f0f0; }
+   .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+   .option-btn {
+     padding: 14px; border: 2px solid rgba(255,255,255,0.15); border-radius: 12px;
+     background: rgba(255,255,255,0.05); color: #ddd; cursor: pointer;
+     font-size: 0.88em; text-align: left; transition: all 0.25s;
+   }
+   .option-btn:hover:not(:disabled) { border-color: #ffd200; background: rgba(255,210,0,0.1); color: #fff; }
+   .option-btn.correct { border-color: #4eff91; background: rgba(78,255,145,0.15); color: #4eff91; }
+   .option-btn.wrong { border-color: #ff4e4e; background: rgba(255,78,78,0.15); color: #ff4e4e; }
+   .feedback {
+     margin-top: 16px; padding: 14px; border-radius: 10px;
+     font-size: 0.9em; line-height: 1.6; display: none;
+   }
+   .feedback.show { display: block; }
+   .feedback.correct-fb { background: rgba(78,255,145,0.1); border: 1px solid rgba(78,255,145,0.3); color: #a0ffc0; }
+   .feedback.wrong-fb { background: rgba(255,78,78,0.1); border: 1px solid rgba(255,78,78,0.3); color: #ffb0b0; }
+   .next-btn {
+     margin-top: 16px; padding: 12px 28px; border: none; border-radius: 10px;
+     background: linear-gradient(135deg, #f7971e, #ffd200); color: #1a1a2e;
+     font-weight: bold; cursor: pointer; font-size: 0.95em; display: none;
+     transition: transform 0.2s;
+   }
+   .next-btn:hover { transform: scale(1.05); }
+   .next-btn.show { display: inline-block; }
+   /* RESULT */
+   .result-card {
+     text-align: center; padding: 40px;
+     background: rgba(255,255,255,0.07); border-radius: 16px;
+     border: 1px solid rgba(255,255,255,0.12);
+   }
+   .result-emoji { font-size: 4em; margin-bottom: 16px; }
+   .result-title { font-size: 1.8em; font-weight: bold; margin-bottom: 10px; }
+   .result-score { font-size: 3em; color: #ffd200; font-weight: bold; }
+   .result-msg { color: #aaa; margin: 16px 0; font-size: 0.95em; }
+   .restart-btn {
+     padding: 14px 32px; border: none; border-radius: 12px;
+     background: linear-gradient(135deg, #f7971e, #ffd200); color: #1a1a2e;
+     font-weight: bold; cursor: pointer; font-size: 1em; margin-top: 10px;
+     transition: transform 0.2s;
+   }
+   .restart-btn:hover { transform: scale(1.05); }
+   /* CALCULATOR */
+   .calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+   @media (max-width: 600px) { .calc-grid { grid-template-columns: 1fr; } .options { grid-template-columns: 1fr; } }
+   .calc-card { background: rgba(255,255,255,0.07); border-radius: 14px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); }
+   .calc-card h3 { color: #ffd200; margin-bottom: 14px; font-size: 1em; }
+   .input-group { margin-bottom: 12px; }
+   .input-group label { display: block; font-size: 0.8em; color: #aaa; margin-bottom: 5px; }
+   .input-group input {
+     width: 100%; padding: 8px 12px; border-radius: 8px;
+     border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3);
+     color: #fff; font-size: 0.9em;
+   }
+   .calc-btn {
+     width: 100%; padding: 10px; border: none; border-radius: 8px;
+     background: linear-gradient(135deg, #302b63, #24243e); color: #ffd200;
+     font-weight: bold; cursor: pointer; font-size: 0.9em;
+     border: 1px solid rgba(255,210,0,0.3); transition: all 0.2s; margin-top: 4px;
+   }
+   .calc-btn:hover { background: rgba(255,210,0,0.1); }
+   .calc-result {
+     margin-top: 12px; padding: 12px; border-radius: 8px;
+     background: rgba(0,0,0,0.4); border: 1px solid rgba(126,255,245,0.2);
+     color: #7efff5; font-family: monospace; font-size: 1em; text-align: center; min-height: 44px;
+   }
+   .progress-bar-wrap { background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px; margin-bottom: 20px; }
+   .progress-bar { height: 6px; border-radius: 10px; background: linear-gradient(90deg, #f7971e, #ffd200); transition: width 0.4s; }
+ </style>
+ </head>
+ <body>
+ <div class="stars"></div>
+ <div class="container">
+   <header>
+     <h1>💡 公式大师</h1>
+     <p>探索改变金融世界的 6 大核心公式</p>
+   </header>
+   <div class="score-bar">
+     <div class="score-item"><div class="label">得分</div><div class="value" id="totalScore">0</div></div>
+     <div class="score-item"><div class="label">连击</div><div class="value" id="combo">×1</div></div>
+     <div class="score-item"><div class="label">已解锁</div><div class="value" id="unlocked">0/6</div></div>
+     <div class="score-item"><div class="label">正确率</div><div class="value" id="accuracy">-</div></div>
+   </div>
+   <div class="tabs">
+     <button class="tab-btn active" onclick="switchTab('explore')">📚 探索公式</button>
+     <button class="tab-btn" onclick="switchTab('quiz')">🎯 知识挑战</button>
+     <button class="tab-btn" onclick="switchTab('calc')">🔢 公式计算器</button>
+   </div>
+   <!-- EXPLORE -->
+   <div class="explore-section active" id="exploreSection">
+     <div class="card">
+       <div class="card-header"><span class="card-icon">🎰</span><div><div class="card-title">凯利公式 Kelly Criterion</div><div class="card-subtitle">最优下注比例</div></div></div>
+       <div class="formula-box">f* = (b·p - q) / b</div>
+       <p>由约翰·凯利于1956年提出。<b>f*</b> 是最优投注比例，<b>b</b> 是赔率，<b>p</b> 是胜率，<b>q=1-p</b> 是败率。帮助投资者在长期内实现资产最大化增长，同时避免破产风险。</p>
+       <span class="tag tag-risk">风险管理</span><span class="tag tag-return">长期增长</span>
+     </div>
+     <div class="card">
+       <div class="card-header"><span class="card-icon">📈</span><div><div class="card-title">夏普比率 Sharpe Ratio</div><div class="card-subtitle">风险调整后收益</div></div></div>
+       <div class="formula-box">S = (Rp - Rf) / σp</div>
+       <p>由威廉·夏普于1966年提出。<b>Rp</b> 是投资组合收益，<b>Rf</b> 是无风险利率，<b>σp</b> 是标准差。衡量每承担一单位风险所获得的超额收益，是评估投资表现的黄金标准。</p>
+       <span class="tag tag-risk">风险评估</span><span class="tag tag-return">绩效评价</span>
+     </div>
+     <div class="card">
+       <div class="card-header"><span class="card-icon">🎲</span><div><div class="card-title">布莱克-肖尔斯公式 Black-Scholes</div><div class="card-subtitle">期权定价模型</div></div></div>
+       <div class="formula-box">C = S·N(d₁) - K·e^(-rT)·N(d₂)</div>
+       <p>1973年由布莱克与肖尔斯提出，获诺贝尔经济学奖。为欧式期权定价提供理论基础。<b>S</b>=股价，<b>K</b>=执行价，<b>r</b>=无风险利率，<b>T</b>=到期时间。彻底革命了金融衍生品市场。</p>
+       <span class="tag tag-pricing">期权定价</span><span class="tag tag-risk">衍生品</span>
+     </div>
+     <div class="card">
+       <div class="card-header"><span class="card-icon">🏦</span><div><div class="card-title">资本资产定价模型 CAPM</div><div class="card-subtitle">资产预期收益</div></div></div>
+       <div class="formula-box">E(Ri) = Rf + βi · [E(Rm) - Rf]</div>
+       <p>由夏普、林特纳等人在1960年代发展。<b>β</b> 衡量资产相对于市场的系统风险。解释了为什么高风险资产应提供更高回报，是现代资产定价的基础理论。</p>
+       <span class="tag tag-portfolio">资产定价</span><span class="tag tag-risk">系统风险</span>
+     </div>
+     <div class="card">
+       <div class="card-header"><span class="card-icon">📊</span><div><div class="card-title">马科维茨有效前沿 Markowitz</div><div class="card-subtitle">投资组合优化</div></div></div>
+       <div class="formula-box">σ²p = Σi Σj wi·wj·σij</div>
+       <p>哈里·马科维茨1952年提出，获诺贝尔经济学奖。通过分散投资降低非系统性风险。核心思想：不要把所有鸡蛋放在一个篮子里，在给定风险下追求最大回报。</p>
+       <span class="tag tag-portfolio">组合优化</span><span class="tag tag-return">分散投资</span>
+     </div>
+     <div class="card">
+       <div class="card-header"><span class="card-icon">💰</span><div><div class="card-title">复利公式 Compound Interest</div><div class="card-subtitle">财富增长引擎</div></div></div>
+       <div class="formula-box">A = P · (1 + r/n)^(n·t)</div>
+       <p>被爱因斯坦称为"世界第八大奇迹"。<b>P</b>=本金，<b>r</b>=年利率，<b>n</b>=每年计息次数，<b>t</b>=时间（年）。时间是复利的最大放大器，越早开始投资，效果越惊人。</p>
+       <span class="tag tag-return">长期增长</span><span class="tag tag-portfolio">时间价值</span>
+     </div>
+   </div>
+   <!-- QUIZ -->
+   <div class="quiz-section" id="quizSection">
+     <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+     <div id="quizContent"></div>
+   </div>
+   <!-- CALCULATOR -->
+   <div class="calc-section" id="calcSection">
+     <div class="calc-grid">
+       <div class="calc-card">
+         <h3>🎰 凯利公式</h3>
+         <div class="input-group"><label>胜率 p (0~1)</label><input type="number" id="k_p" value="0.55" step="0.01" min="0" max="1"></div>
+         <div class="input-group"><label>赔率 b (赢1赔b)</label><input type="number" id="k_b" value="1.0" step="0.1" min="0.1"></div>
+         <button class="calc-btn" onclick="calcKelly()">计算最优仓位</button>
+         <div class="calc-result" id="k_result">-</div>
+       </div>
+       <div class="calc-card">
+         <h3>📈 夏普比率</h3>
+         <div class="input-group"><label>组合年化收益率 (%)</label><input type="number" id="s_rp" value="12" step="0.1"></div>
+         <div class="input-group"><label>无风险利率 (%)</label><input type="number" id="s_rf" value="3" step="0.1"></div>
+         <div class="input-group"><label>组合标准差 (%)</label><input type="number" id="s_sigma" value="15" step="0.1"></div>
+         <button class="calc-btn" onclick="calcSharpe()">计算夏普比率</button>
+         <div class="calc-result" id="s_result">-</div>
+       </div>
+       <div class="calc-card">
+         <h3>💰 复利计算</h3>
+         <div class="input-group"><label>本金 P (元)</label><input type="number" id="c_p" value="10000"></div>
+         <div class="input-group"><label>年利率 r (%)</label><input type="number" id="c_r" value="8" step="0.1"></div>
+         <div class="input-group"><label>投资年限 t</label><input type="number" id="c_t" value="10" min="1"></div>
+         <button class="calc-btn" onclick="calcCompound()">计算终值</button>
+         <div class="calc-result" id="c_result">-</div>
+       </div>
+       <div class="calc-card">
+         <h3>🏦 CAPM 预期收益</h3>
+         <div class="input-group"><label>无风险利率 Rf (%)</label><input type="number" id="capm_rf" value="3" step="0.1"></div>
+         <div class="input-group"><label>市场收益率 Rm (%)</label><input type="number" id="capm_rm" value="10" step="0.1"></div>
+         <div class="input-group"><label>Beta β 值</label><input type="number" id="capm_b" value="1.2" step="0.1"></div>
+         <button class="calc-btn" onclick="calcCAPM()">计算预期收益</button>
+         <div class="calc-result" id="capm_result">-</div>
+       </div>
+     </div>
+   </div>
+ </div>
+ <script>
+ const questions = [
+   { q: "凯利公式中，f* = (b·p - q) / b，若胜率p=0.6，赔率b=1，最优投注比例是？", opts: ["10%", "20%", "30%", "40%"], ans: 1, explain: "f* = (1×0.6 - 0.4) / 1 = 0.2，即 20%。凯利公式在长期内可最大化对数财富增长！" },
+   { q: "夏普比率为负数意味着什么？", opts: ["收益高于市场", "风险调整后表现差于无风险资产", "投资组合无风险", "标准差为零"], ans: 1, explain: "夏普比率为负说明该投资还不如直接买国债，是表现差的重要信号。" },
+   { q: "布莱克-肖尔斯公式主要用于什么？", opts: ["计算贷款利率", "股票趋势预测", "期权合理定价", "计算分散化收益"], ans: 2, explain: "B-S公式为欧式期权提供理论定价，1997年获诺贝尔经济学奖，彻底改变了衍生品市场！" },
+   { q: "CAPM中β=0意味着什么？", opts: ["与市场完全同步", "比市场波动更大", "与市场波动无关", "亏损概率为零"], ans: 2, explain: "β=0表示该资产与市场完全不相关，如现金或某些对冲资产，预期收益等于无风险利率。" },
+   { q: "马科维茨理论的核心观点是？", opts: ["集中投资收益最大", "分散投资可降低风险", "只买低价股", "Beta越高越好"], ans: 1, explain: "通过持有相关性低的资产，可以在不降低收益的情况下减少整体风险，这就是分散投资的魔法！" },
+   { q: "本金1万元，年化8%，复利10年后大约是？", opts: ["1.8万元", "2.16万元", "2.5万元", "3万元"], ans: 1, explain: "A = 10000 × (1.08)^10 ≈ 21,589元，约2.16万。复利的力量随时间指数增长！" },
+   { q: "以下哪个指标能衡量单位风险对应的超额收益？", opts: ["Beta系数", "夏普比率", "凯利比例", "复利终值"], ans: 1, explain: "夏普比率 = 超额收益/标准差，是最常用的风险调整绩效指标，夏普>1通常认为不错。" },
+   { q: "凯利公式建议的仓位有时被称为'全凯利'，实际应用中为何常用'半凯利'？", opts: ["计算更简单", "降低短期波动和破产风险", "提高年化收益", "监管要求"], ans: 1, explain: "全凯利仓位的回撤往往很大，半凯利可以牺牲少量长期收益换取更平滑的资金曲线和更低的心理压力。" },
+   { q: "CAPM中'市场风险溢价'指的是？", opts: ["Rf", "E(Rm) - Rf", "β × Rf", "σ / Rf"], ans: 1, explain: "市场风险溢价 = E(Rm) - Rf，是持有市场组合相对无风险资产的超额预期回报，历史上约4~6%。" },
+   { q: "布莱克-肖尔斯公式假设股价遵循什么过程？", opts: ["线性增长", "随机游走/几何布朗运动", "正弦波动", "均值回归"], ans: 1, explain: "B-S模型假设股价遵循几何布朗运动，收益率服从正态分布。这个假设在极端市场中会失效（黑天鹅）。" },
+   { q: "夏普比率 > 2 通常被认为是什么评级？", opts: ["一般", "良好", "卓越", "较差"], ans: 2, explain: "夏普比率评级：>2=卓越，1~2=良好，0~1=一般，<0=较差。" },
+   { q: "以下哪项不是复利的关键要素？", opts: ["本金", "利率", "时间", "投资者年龄"], ans: 3, explain: "复利三要素：本金、利率、时间。时间是最关键的放大器，越早开始效果越惊人！" }
+ ];
+ let current = 0, score = 0, combo = 1, correct = 0, total = 0;
+ let answered = false;
+ function switchTab(tab) {
+   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+   document.querySelectorAll('.explore-section,.quiz-section,.calc-section').forEach(s => s.classList.remove('active'));
+   event.target.classList.add('active');
+   if (tab === 'explore') document.getElementById('exploreSection').classList.add('active');
+   else if (tab === 'quiz') { document.getElementById('quizSection').classList.add('active'); if(current === 0 && total === 0) renderQuestion(); }
+   else document.getElementById('calcSection').classList.add('active');
+ }
+ function renderQuestion() {
+   const qSection = document.getElementById('quizContent');
+   if (current >= questions.length) { showResult(); return; }
+   const q = questions[current];
+   document.getElementById('progressBar').style.width = (current / questions.length * 100) + '%';
+   qSection.innerHTML = `
+     <div class="question-card">
+       <div class="question-num">题目 ${current + 1} / ${questions.length}</div>
+       <div class="question-text">${q.q}</div>
+       <div class="options">
+         ${q.opts.map((o, i) => `<button class="option-btn" onclick="answer(${i})">${String.fromCharCode(65+i)}. ${o}</button>`).join('')}
+       </div>
+       <div class="feedback" id="feedback"></div>
+       <button class="next-btn" id="nextBtn" onclick="nextQ()">${current === questions.length - 1 ? '查看结果 🏆' : '下一题 →'}</button>
+     </div>`;
+   answered = false;
+ }
+ function answer(idx) {
+   if (answered) return;
+   answered = true;
+   total++;
+   const q = questions[current];
+   const btns = document.querySelectorAll('.option-btn');
+   const fb = document.getElementById('feedback');
+   btns.forEach(b => b.disabled = true);
+   if (idx === q.ans) {
+     btns[idx].classList.add('correct');
+     correct++;
+     const pts = 100 * combo;
+     score += pts;
+     fb.className = 'feedback show correct-fb';
+     fb.innerHTML = `✅ 正确！+${pts}分 × ${combo}连击<br><small>${q.explain}</small>`;
+     combo = Math.min(combo + 1, 5);
+     document.getElementById('unlocked').textContent = Math.min(correct, 6) + '/6';
+   } else {
+     btns[idx].classList.add('wrong');
+     btns[q.ans].classList.add('correct');
+     fb.className = 'feedback show wrong-fb';
+     fb.innerHTML = `❌ 答错了<br><small>${q.explain}</small>`;
+     combo = 1;
+   }
+   document.getElementById('totalScore').textContent = score;
+   document.getElementById('combo').textContent = '×' + combo;
+   document.getElementById('accuracy').textContent = Math.round(correct / total * 100) + '%';
+   document.getElementById('nextBtn').classList.add('show');
+ }
+ function nextQ() { current++; renderQuestion(); }
+ function showResult() {
+   const pct = Math.round(correct / questions.length * 100);
+   let emoji, msg;
+   if (pct >= 90) { emoji = '🏆'; msg = '公式大师！你对金融数学的理解令人叹服！'; }
+   else if (pct >= 70) { emoji = '🌟'; msg = '优秀！你已掌握大部分核心公式！'; }
+   else if (pct >= 50) { emoji = '📖'; msg = '不错的开始，多回看探索模块继续提升！'; }
+   else { emoji = '💪'; msg = '别气馁！回到探索模块重新学习公式吧！'; }
+   document.getElementById('progressBar').style.width = '100%';
+   document.getElementById('quizContent').innerHTML = `
+     <div class="result-card">
+       <div class="result-emoji">${emoji}</div>
+       <div class="result-title">${msg}</div>
+       <div class="result-score">${correct} / ${questions.length}</div>
+       <div class="result-msg">总得分：${score} 分 | 正确率：${pct}%</div>
+       <button class="restart-btn" onclick="restartQuiz()">🔄 再挑战一次</button>
+     </div>`;
+ }
+ function restartQuiz() { current = 0; score = 0; combo = 1; correct = 0; total = 0; document.getElementById('totalScore').textContent = 0; document.getElementById('combo').textContent = '×1'; document.getElementById('unlocked').textContent = '0/6'; document.getElementById('accuracy').textContent = '-'; document.getElementById('progressBar').style.width = '0%'; renderQuestion(); }
+ function calcKelly() {
+   const p = parseFloat(document.getElementById('k_p').value);
+   const b = parseFloat(document.getElementById('k_b').value);
+   const q = 1 - p;
+   const f = (b * p - q) / b;
+   const r = document.getElementById('k_result');
+   if (f <= 0) r.textContent = '❌ 不建议投注（期望值为负）';
+   else r.textContent = `最优仓位：${(f * 100).toFixed(2)}%\n半凯利建议：${(f * 50).toFixed(2)}%`;
+ }
+ function calcSharpe() {
+   const rp = parseFloat(document.getElementById('s_rp').value);
+   const rf = parseFloat(document.getElementById('s_rf').value);
+   const sigma = parseFloat(document.getElementById('s_sigma').value);
+   const s = (rp - rf) / sigma;
+   const r = document.getElementById('s_result');
+   let rating = s > 2 ? '🏆 卓越' : s > 1 ? '✅ 良好' : s > 0 ? '⚠️ 一般' : '❌ 较差';
+   r.textContent = `夏普比率：${s.toFixed(3)}\n评级：${rating}`;
+ }
+ function calcCompound() {
+   const p = parseFloat(document.getElementById('c_p').value);
+   const r = parseFloat(document.getElementById('c_r').value) / 100;
+   const t = parseInt(document.getElementById('c_t').value);
+   const a = p * Math.pow(1 + r, t);
+   document.getElementById('c_result').textContent = `终值：¥${a.toFixed(2)}\n增长：${((a/p - 1)*100).toFixed(1)}%`;
+ }
+ function calcCAPM() {
+   const rf = parseFloat(document.getElementById('capm_rf').value);
+   const rm = parseFloat(document.getElementById('capm_rm').value);
+   const b = parseFloat(document.getElementById('capm_b').value);
+   const e = rf + b * (rm - rf);
+   document.getElementById('capm_result').textContent = `预期收益：${e.toFixed(2)}%\n风险溢价：${(b*(rm-rf)).toFixed(2)}%`;
+ }
+ </script>
+ </body>
+ </html>
