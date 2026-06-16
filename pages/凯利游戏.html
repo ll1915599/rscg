@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>凯利公式小游戏</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+    background: #0f0f1a;
+    color: #e0e0f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 2em;
+    color: #a78bfa;
+    margin: 18px 0 4px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 18px #7c3aed88;
+  }
+  .subtitle {
+    color: #888;
+    font-size: 0.9em;
+    margin-bottom: 20px;
+  }
+  .container {
+    width: 100%;
+    max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ---- CARD ---- */
+  .card {
+    background: #1a1a2e;
+    border: 1px solid #2e2e50;
+    border-radius: 14px;
+    padding: 20px 24px;
+  }
+  .card h2 {
+    font-size: 1em;
+    color: #a78bfa;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ---- STATS BAR ---- */
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    flex: 1;
+    min-width: 120px;
+    background: #12122a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    text-align: center;
+  }
+  .stat .label { font-size: 0.75em; color: #888; margin-bottom: 4px; }
+  .stat .value { font-size: 1.4em; font-weight: bold; color: #e0e0f0; }
+  .stat .value.green { color: #34d399; }
+  .stat .value.red   { color: #f87171; }
+  .stat .value.gold  { color: #fbbf24; }
+  .stat .value.purple{ color: #c084fc; }
+
+  /* ---- ROUND INFO ---- */
+  .round-info {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .ri-box {
+    flex: 1; min-width: 120px;
+    background: #12122a;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+  }
+  .ri-box .rl { font-size: 0.72em; color: #888; margin-bottom: 3px; }
+  .ri-box .rv { font-size: 1.2em; font-weight: bold; }
+  .rv.blue   { color: #60a5fa; }
+  .rv.green  { color: #34d399; }
+  .rv.yellow { color: #fbbf24; }
+  .rv.purple { color: #c084fc; }
+
+  /* ---- KELLY HINT ---- */
+  .kelly-hint {
+    background: linear-gradient(90deg, #1e1040 0%, #12122a 100%);
+    border: 1px solid #5b21b688;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .kelly-hint .kf { font-size: 1.3em; color: #a78bfa; font-weight: bold; }
+  .kelly-hint .kd { font-size: 0.85em; color: #bbb; }
+  .formula { font-size: 0.8em; color: #888; margin-top: 2px; font-style: italic; }
+
+  /* ---- SLIDER ---- */
+  .bet-section label {
+    font-size: 0.9em;
+    color: #aaa;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: #7c3aed;
+    height: 6px;
+    cursor: pointer;
+    margin-bottom: 10px;
+  }
+  .bet-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .bet-amount {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #fbbf24;
+  }
+  .bet-pct {
+    font-size: 0.9em;
+    color: #888;
+  }
+
+  /* ---- BUTTONS ---- */
+  .btn {
+    border: none;
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary {
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: white;
+    width: 100%;
+    margin-top: 6px;
+    font-size: 1.1em;
+    letter-spacing: 1px;
+  }
+  .btn-secondary {
+    background: #2e2e50;
+    color: #ccc;
+  }
+  .btn-kelly {
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    color: white;
+    font-size: 0.85em;
+    padding: 8px 16px;
+    border-radius: 8px;
+  }
+
+  /* ---- RESULT POPUP ---- */
+  .result-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #00000088;
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .result-overlay.show { display: flex; }
+  .result-box {
+    background: #1a1a2e;
+    border-radius: 18px;
+    padding: 36px 40px;
+    text-align: center;
+    max-width: 360px;
+    width: 90%;
+    border: 2px solid #3b3b6a;
+    animation: popIn 0.25s ease;
+  }
+  @keyframes popIn {
+    from { transform: scale(0.85); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+  .result-emoji { font-size: 3.5em; margin-bottom: 12px; }
+  .result-title { font-size: 1.6em; font-weight: bold; margin-bottom: 8px; }
+  .result-detail { color: #aaa; font-size: 0.95em; margin-bottom: 20px; }
+  .result-change { font-size: 1.3em; font-weight: bold; margin-bottom: 16px; }
+
+  /* ---- LOG ---- */
+  .log-list {
+    max-height: 180px;
+    overflow-y: auto;
+    font-size: 0.82em;
+    color: #aaa;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .log-list::-webkit-scrollbar { width: 4px; }
+  .log-list::-webkit-scrollbar-thumb { background: #3b3b6a; border-radius: 4px; }
+  .log-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #12122a;
+    border-radius: 7px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .log-item .outcome-win  { color: #34d399; font-weight: bold; }
+  .log-item .outcome-loss { color: #f87171; font-weight: bold; }
+
+  /* ---- CHART ---- */
+  canvas#chart {
+    width: 100% !important;
+    height: 140px !important;
+    border-radius: 8px;
+  }
+
+  /* ---- GAMEOVER ---- */
+  .gameover-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000000cc;
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .gameover-overlay.show { display: flex; }
+  .gameover-box {
+    background: #1a1a2e;
+    border-radius: 18px;
+    padding: 40px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+    border: 2px solid #7c3aed;
+  }
+  .gameover-box h2 { font-size: 2em; color: #f87171; margin-bottom: 12px; }
+  .gameover-box p  { color: #aaa; margin-bottom: 6px; }
+  .gameover-box .big { font-size: 1.4em; font-weight: bold; color: #fbbf24; margin: 14px 0; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.75em;
+    font-weight: bold;
+  }
+  .tag-over  { background: #7f1d1d; color: #fca5a5; }
+  .tag-under { background: #1c1917; color: #a8a29e; }
+  .tag-kelly { background: #1e1b4b; color: #a5b4fc; }
+
+  .no-log { color: #555; font-style: italic; text-align: center; padding: 14px; }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 1.4em; }
+    .card { padding: 14px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>📈 凯利公式挑战</h1>
+<p class="subtitle">用凯利公式最大化长期财富增长 · 共 <span id="totalRoundsLabel">20</span> 轮</p>
+
+<div class="container">
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="label">💰 当前资金</div>
+      <div class="value gold" id="capitalDisplay">$1,000</div>
+    </div>
+    <div class="stat">
+      <div class="label">📊 初始资金</div>
+      <div class="value" id="startCapitalDisplay">$1,000</div>
+    </div>
+    <div class="stat">
+      <div class="label">🔄 当前轮次</div>
+      <div class="value purple" id="roundDisplay">1 / 20</div>
+    </div>
+    <div class="stat">
+      <div class="label">📈 总收益率</div>
+      <div class="value green" id="roiDisplay">+0.00%</div>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="card">
+    <h2>📉 资金曲线</h2>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <!-- ROUND -->
+  <div class="card">
+    <h2>🎲 本轮信息</h2>
+    <div class="round-info">
+      <div class="ri-box">
+        <div class="rl">胜率 (p)</div>
+        <div class="rv green" id="probDisplay">55%</div>
+      </div>
+      <div class="ri-box">
+        <div class="rl">赔率 (b)</div>
+        <div class="rv yellow" id="oddsDisplay">2.0x</div>
+      </div>
+      <div class="ri-box">
+        <div class="rl">败率 (q)</div>
+        <div class="rv red" id="lossDisplay">45%</div>
+      </div>
+      <div class="ri-box">
+        <div class="rl">期望值</div>
+        <div class="rv blue" id="evDisplay">+0.10</div>
+      </div>
+    </div>
+
+    <div class="kelly-hint">
+      <div>
+        <div class="kf">🧮 凯利最优仓位：<span id="kellyPct">--</span>%</div>
+        <div class="kd">建议投注：<span id="kellySuggest">--</span></div>
+        <div class="formula">f* = (b×p − q) / b</div>
+      </div>
+      <button class="btn btn-kelly" onclick="applyKelly()">一键应用 ✨</button>
+    </div>
+
+    <div class="bet-section">
+      <label>
+        <span>选择投注比例</span>
+        <span id="sliderPctLabel">0%</span>
+      </label>
+      <input type="range" id="betSlider" min="0" max="100" value="0" step="1" oninput="updateBet()">
+      <div class="bet-display">
+        <div>
+          <div class="bet-amount" id="betAmountDisplay">$0</div>
+          <div class="bet-pct" id="betPctTagDisplay">投注 0% 的资金</div>
+        </div>
+        <div id="betRatingTag"></div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="betBtn" onclick="placeBet()">⚡ 确认投注</button>
+  </div>
+
+  <!-- LOG -->
+  <div class="card">
+    <h2>📋 投注记录</h2>
+    <div class="log-list" id="logList">
+      <div class="no-log">暂无记录，开始投注吧！</div>
+    </div>
+  </div>
+
+  <!-- RESET -->
+  <div style="display:flex;gap:10px;justify-content:center;">
+    <button class="btn btn-secondary" onclick="showSettings()">⚙️ 设置</button>
+    <button class="btn btn-secondary" onclick="resetGame()">🔁 重新开始</button>
+  </div>
+</div>
+
+<!-- RESULT POPUP -->
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-box">
+    <div class="result-emoji" id="resultEmoji">🎉</div>
+    <div class="result-title" id="resultTitle">获胜！</div>
+    <div class="result-detail" id="resultDetail"></div>
+    <div class="result-change" id="resultChange"></div>
+    <button class="btn btn-primary" onclick="closeResult()">继续下一轮 →</button>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div class="gameover-overlay" id="gameoverOverlay">
+  <div class="gameover-box">
+    <h2 id="goTitle">游戏结束</h2>
+    <p id="goDesc">你已完成所有轮次！</p>
+    <div class="big" id="goResult"></div>
+    <p id="goKellyComparison" style="color:#a78bfa;margin-bottom:18px;"></p>
+    <p style="font-size:0.85em;color:#666;margin-bottom:20px;" id="goAdvice"></p>
+    <button class="btn btn-primary" onclick="resetGame()">🔁 再来一局</button>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="result-overlay" id="settingsOverlay">
+  <div class="result-box" style="max-width:400px;">
+    <div style="font-size:1.4em;font-weight:bold;margin-bottom:16px;">⚙️ 游戏设置</div>
+    <div style="text-align:left;display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
+      <label style="font-size:0.9em;color:#aaa;">
+        初始资金 ($)
+        <input type="number" id="settingCapital" value="1000" min="100" max="100000"
+          style="width:100%;margin-top:4px;padding:8px;background:#12122a;border:1px solid #3b3b6a;border-radius:8px;color:#e0e0f0;font-size:1em;">
+      </label>
+      <label style="font-size:0.9em;color:#aaa;">
+        总轮次
+        <input type="number" id="settingRounds" value="20" min="5" max="100"
+          style="width:100%;margin-top:4px;padding:8px;background:#12122a;border:1px solid #3b3b6a;border-radius:8px;color:#e0e0f0;font-size:1em;">
+      </label>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeSettings()">取消</button>
+      <button class="btn btn-primary" style="flex:1" onclick="applySettings()">应用 & 重置</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== STATE =====================
+let state = {
+  capital: 1000,
+  startCapital: 1000,
+  round: 1,
+  totalRounds: 20,
+  prob: 0.55,
+  odds: 2.0,
+  kellyFrac: 0,
+  history: [1000],
+  log: [],
+  betPlaced: false,
+};
+
+// ===================== INIT =====================
+function init() {
+  state.capital     = state.startCapital;
+  state.round       = 1;
+  state.history     = [state.startCapital];
+  state.log         = [];
+  state.betPlaced   = false;
+  generateRound();
+  render();
+}
+
+function generateRound() {
+  // Random probability 40%–70%
+  state.prob = +(0.40 + Math.random() * 0.30).toFixed(2);
+  // Random odds 1.2x – 3.5x
+  state.odds = +(1.2 + Math.random() * 2.3).toFixed(1);
+  // Ensure EV > 0 always (positive edge)
+  const ev = state.odds * state.prob - (1 - state.prob);
+  if (ev <= 0) { generateRound(); return; }
+  // Kelly fraction
+  state.kellyFrac = Math.max(0, (state.odds * state.prob - (1 - state.prob)) / state.odds);
+  state.kellyFrac = +state.kellyFrac.toFixed(4);
+  document.getElementById('betSlider').value = 0;
+}
+
+// ===================== RENDER =====================
+function render() {
+  const c = state.capital;
+  const sc = state.startCapital;
+  const roi = ((c - sc) / sc * 100);
+
+  document.getElementById('capitalDisplay').textContent     = '$' + fmt(c);
+  document.getElementById('startCapitalDisplay').textContent = '$' + fmt(sc);
+  document.getElementById('roundDisplay').textContent       = state.round + ' / ' + state.totalRounds;
+  document.getElementById('totalRoundsLabel').textContent   = state.totalRounds;
+
+  const roiEl = document.getElementById('roiDisplay');
+  roiEl.textContent = (roi >= 0 ? '+' : '') + roi.toFixed(2) + '%';
+  roiEl.className   = 'value ' + (roi >= 0 ? 'green' : 'red');
+
+  const p = state.prob, b = state.odds, q = +(1 - p).toFixed(2);
+  const ev = +(b * p - q).toFixed(4);
+
+  document.getElementById('probDisplay').textContent = (p * 100).toFixed(0) + '%';
+  document.getElementById('oddsDisplay').textContent = b.toFixed(1) + 'x';
+  document.getElementById('lossDisplay').textContent = (q * 100).toFixed(0) + '%';
+  document.getElementById('evDisplay').textContent   = (ev >= 0 ? '+' : '') + ev.toFixed(3);
+
+  const kp = (state.kellyFrac * 100).toFixed(1);
+  document.getElementById('kellyPct').textContent     = kp;
+  document.getElementById('kellySuggest').textContent = '$' + fmt(state.capital * state.kellyFrac);
+
+  updateBet();
+  renderLog();
+  drawChart();
+}
+
+function updateBet() {
+  const pct    = +document.getElementById('betSlider').value;
+  const amount = state.capital * pct / 100;
+  document.getElementById('sliderPctLabel').textContent  = pct + '%';
+  document.getElementById('betAmountDisplay').textContent = '$' + fmt(amount);
+  document.getElementById('betPctTagDisplay').textContent = '投注 ' + pct + '% 的资金';
+
+  const kf = state.kellyFrac * 100;
+  const tagEl = document.getElementById('betRatingTag');
+  if (pct === 0) {
+    tagEl.innerHTML = '';
+  } else if (Math.abs(pct - kf) < 2) {
+    tagEl.innerHTML = '<span class="tag tag-kelly">✅ 接近最优</span>';
+  } else if (pct > kf * 1.5) {
+    tagEl.innerHTML = '<span class="tag tag-over">⚠️ 过度投注</span>';
+  } else if (pct < kf * 0.5) {
+    tagEl.innerHTML = '<span class="tag tag-under">💤 低于最优</span>';
+  } else {
+    tagEl.innerHTML = '';
+  }
+}
+
+function renderLog() {
+  const el = document.getElementById('logList');
+  if (state.log.length === 0) {
+    el.innerHTML = '<div class="no-log">暂无记录，开始投注吧！</div>';
+    return;
+  }
+  el.innerHTML = state.log.slice().reverse().map(l => `
+    <div class="log-item">
+      <span>第 ${l.round} 轮</span>
+      <span>投注 ${l.pct}% ($${fmt(l.bet)})</span>
+      <span class="${l.win ? 'outcome-win' : 'outcome-loss'}">${l.win ? '✅ 胜' : '❌ 负'}</span>
+      <span style="color:#aaa">$${fmt(l.before)} → $${fmt(l.after)}</span>
+    </div>
+  `).join('');
+}
+
+// ===================== CHART =====================
+function drawChart() {
+  const canvas = document.getElementById('chart');
+  const ctx    = canvas.getContext('2d');
+  const dpr    = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  const data = state.history;
+  const min  = Math.min(...data) * 0.95;
+  const max  = Math.max(...data) * 1.05;
+  const pad  = { l: 50, r: 10, t: 10, b: 20 };
+  const cW   = W - pad.l - pad.r;
+  const cH   = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#2e2e50';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + cH * i / 4;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cW, y); ctx.stroke();
+    const v = max - (max - min) * i / 4;
+    ctx.fillStyle = '#555';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('$' + fmt(v, 0), 2, y + 4);
+  }
+
+  // Start line
+  const startY = pad.t + cH * (1 - (state.startCapital - min) / (max - min));
+  ctx.strokeStyle = '#3b3b6a';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(pad.l, startY); ctx.lineTo(pad.l + cW, startY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (data.length < 2) return;
+
+  const xPos = i => pad.l + cW * i / (state.totalRounds);
+  const yPos = v  => pad.t + cH * (1 - (v - min) / (max - min));
+
+  // Fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + cH);
+  grad.addColorStop(0, '#7c3aed55');
+  grad.addColorStop(1, '#7c3aed00');
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(data[0]));
+  data.forEach((v, i) => ctx.lineTo(xPos(i), yPos(v)));
+  ctx.lineTo(xPos(data.length - 1), pad.t + cH);
+  ctx.lineTo(xPos(0), pad.t + cH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(data[0]));
+  data.forEach((v, i) => ctx.lineTo(xPos(i), yPos(v)));
+  ctx.strokeStyle = '#a78bfa';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Dot current
+  const last = data[data.length - 1];
+  ctx.beginPath();
+  ctx.arc(xPos(data.length - 1), yPos(last), 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#a78bfa';
+  ctx.fill();
+}
+
+// ===================== ACTIONS =====================
+function applyKelly() {
+  const pct = Math.min(100, Math.round(state.kellyFrac * 100));
+  document.getElementById('betSlider').value = pct;
+  updateBet();
+}
+
+function placeBet() {
+  if (state.betPlaced) return;
+  state.betPlaced = true;
+
+  const pct    = +document.getElementById('betSlider').value;
+  const bet    = state.capital * pct / 100;
+  const win    = Math.random() < state.prob;
+  const before = state.capital;
+  let after;
+
+  if (win) {
+    after = before + bet * (state.odds - 1);
+  } else {
+    after = before - bet;
+  }
+  after = Math.max(0, +after.toFixed(2));
+
+  state.log.push({
+    round: state.round,
+    pct, bet: +bet.toFixed(2),
+    win, before: +before.toFixed(2), after
+  });
+
+  state.capital = after;
+  state.history.push(after);
+
+  // Show result
+  const diff = after - before;
+  document.getElementById('resultEmoji').textContent  = win ? '🎉' : '💸';
+  document.getElementById('resultTitle').textContent  = win ? '获胜！' : '失败...';
+  document.getElementById('resultDetail').textContent =
+    `投注 $${fmt(bet)} (${pct}%) · 凯利最优: ${(state.kellyFrac*100).toFixed(1)}%`;
+  const chEl = document.getElementById('resultChange');
+  chEl.textContent = (diff >= 0 ? '+' : '') + '$' + fmt(Math.abs(diff));
+  chEl.style.color  = diff >= 0 ? '#34d399' : '#f87171';
+
+  document.getElementById('resultOverlay').classList.add('show');
+}
+
+function closeResult() {
+  document.getElementById('resultOverlay').classList.remove('show');
+
+  if (state.capital <= 0) {
+    showGameover(true);
+    return;
+  }
+  if (state.round >= state.totalRounds) {
+    showGameover(false);
+    return;
+  }
+
+  state.round++;
+  state.betPlaced = false;
+  generateRound();
+  render();
+}
+
+function showGameover(bankrupt) {
+  const roi = (state.capital - state.startCapital) / state.startCapital * 100;
+  document.getElementById('goTitle').textContent    = bankrupt ? '💀 破产了！' : '🏁 游戏结束';
+  document.getElementById('goDesc').textContent     = bankrupt
+    ? '资金归零，游戏终止。' : `你完成了全部 ${state.totalRounds} 轮！`;
+  document.getElementById('goResult').textContent   =
+    `最终资金: $${fmt(state.capital)} (${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%)`;
+
+  // Count how many times overbetted
+  const overCount = state.log.filter(l => l.pct > state.kellyFrac * 100 * 1.5).length;
+  const advice = overCount > 3
+    ? `⚠️ 有 ${overCount} 轮过度投注，这会损害长期增长。`
+    : '👍 仓位控制不错！继续精进凯利策略。';
+  document.getElementById('goAdvice').textContent = advice;
+  document.getElementById('goKellyComparison').textContent =
+    '💡 持续使用凯利最优仓位是长期复利增长的关键！';
+
+  document.getElementById('gameoverOverlay').classList.add('show');
+}
+
+function resetGame() {
+  document.getElementById('gameoverOverlay').classList.remove('show');
+  init();
+}
+
+function showSettings()  { document.getElementById('settingsOverlay').classList.add('show'); }
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('show'); }
+function applySettings() {
+  const cap = +document.getElementById('settingCapital').value || 1000;
+  const rnd = +document.getElementById('settingRounds').value  || 20;
+  state.startCapital = Math.max(100, cap);
+  state.totalRounds  = Math.max(5, Math.min(100, rnd));
+  closeSettings();
+  resetGame();
+}
+
+// ===================== UTILS =====================
+function fmt(n, dec) {
+  if (dec === 0) return Math.round(n).toLocaleString('en-US');
+  return (+n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+window.addEventListener('resize', drawChart);
+init();
+</script>
+</body>
+</html>
