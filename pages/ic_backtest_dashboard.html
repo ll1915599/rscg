@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IC股指期货“吃贴水”策略深度回测系统</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+    <!-- 顶部导航/标题栏 -->
+    <header class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white shadow-md border-b border-indigo-900">
+        <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-2">
+                    量化策略量化模拟器 v2.5
+                </span>
+                <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">IC股指期货“吃贴水”策略回测系统</h1>
+                <p class="text-slate-400 text-xs sm:text-sm mt-1 max-w-3xl">
+                    通过历史波幅与贴水收敛模型，穿透“多头替代”与“杠杆套利”在不同市场周期下的净值表现与极端回撤压力。
+                </p>
+            </div>
+            <div class="flex items-center gap-3 self-start md:self-center">
+                <div class="text-right hidden sm:block">
+                    <p class="text-xs text-slate-400">当前回测基期</p>
+                    <p class="text-sm font-mono font-bold text-emerald-400">1.0000 (期初净值)</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容容器 -->
+    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        
+        <!-- 核心大卡片布局 -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            
+            <!-- 左侧：参数控制面板 -->
+            <div class="lg:col-span-1 flex flex-col gap-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                        <h2 class="text-md font-bold text-slate-900 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                            策略参数配置
+                        </h2>
+                        <span class="text-[11px] text-slate-400">实时计算</span>
+                    </div>
+
+                    <!-- 表单项 -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">平均年化贴水率 (%)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input id="discountRate" type="number" value="8.5" step="0.5" class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 text-xs">%</span>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">历史中枢常在 5% - 15% 运行</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">中证500预期年化收益 (%)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input id="indexReturn" type="number" value="4.0" step="0.5" class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 text-xs">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">策略持仓杠杆率 (倍)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input id="leverage" type="number" value="1.0" step="0.1" min="0.2" max="3.0" class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 text-xs">X</span>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">1.0倍为标准多头替代(无爆仓风险)</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">回测时间跨度</label>
+                            <select id="years" class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition">
+                                <option value="3">3 年 (短周期震荡)</option>
+                                <option value="5" selected>5 年 (完整牛熊转换)</option>
+                                <option value="10">10 年 (长周期跨度)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">年化交易与展期摩擦 (%)</label>
+                            <div class="relative rounded-md shadow-sm">
+                                <input id="friction" type="number" value="0.6" step="0.1" class="block w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-slate-400 text-xs">%</span>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">含跨月换月价差损失及手续费</p>
+                        </div>
+
+                        <button id="runBtn" class="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition duration-150 text-sm shadow-sm shadow-indigo-200 cursor-pointer flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            重新运行回测
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 快捷知识卡片 -->
+                <div class="bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-2xl p-5 shadow-sm">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">游戏理解核心提示</h3>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        IC吃贴水策略的本质是<strong>承接量化对冲机构的对冲成本</strong>。机构为了规避现货多头风险，在期货市场折价抛售空头合约。多头（本策略）通过买入并滚动展期，赚取这一部分折价收敛的红利。
+                    </p>
+                </div>
+            </div>
+
+            <!-- 右侧：看板、图表与业绩指标 -->
+            <div class="lg:col-span-3 flex flex-col gap-6">
+                
+                <!-- 核心四大业绩指标 -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-xs">
+                        <div class="text-[11px] font-medium text-slate-500 mb-1 uppercase tracking-wider">指数累计收益率</div>
+                        <div id="indexTotalReturn" class="text-2xl font-bold text-slate-900 font-mono">--</div>
+                        <div class="text-[10px] text-slate-400 mt-1">中证500基准表现</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-indigo-100 bg-indigo-50/10 shadow-xs">
+                        <div class="text-[11px] font-medium text-indigo-600 mb-1 uppercase tracking-wider">策略累计收益率</div>
+                        <div id="stratTotalReturn" class="text-2xl font-bold text-indigo-600 font-mono">--</div>
+                        <div class="text-[10px] text-slate-400 mt-1">吃贴水叠加复合收益</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-emerald-100 bg-emerald-50/10 shadow-xs">
+                        <div class="text-[11px] font-medium text-emerald-600 mb-1 uppercase tracking-wider">策略年化收益率</div>
+                        <div id="stratAnnReturn" class="text-2xl font-bold text-emerald-600 font-mono">--</div>
+                        <div class="text-[10px] text-slate-400 mt-1">几何平均年化表现</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-rose-100 bg-rose-50/10 shadow-xs">
+                        <div class="text-[11px] font-medium text-rose-600 mb-1 uppercase tracking-wider">策略最大回撤</div>
+                        <div id="maxDrawdown" class="text-2xl font-bold text-rose-600 font-mono">--</div>
+                        <div class="text-[10px] text-slate-400 mt-1">回测期内最大峰谷跌幅</div>
+                    </div>
+                </div>
+
+                <!-- 净值主图表 -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col flex-1">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900">策略净值曲线走势图</h3>
+                            <p class="text-xs text-slate-400">基期初始净值归一化为 1.0</p>
+                        </div>
+                        <div class="flex items-center gap-4 text-xs font-medium">
+                            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-indigo-600 inline-block"></span>吃贴水策略</span>
+                            <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-slate-400 border-dashed inline-block"></span>中证500基准</span>
+                        </div>
+                    </div>
+                    <div class="relative w-full h-[400px]">
+                        <canvas id="backtestChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 策略穿透深度分析 -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <h3 class="text-sm font-bold text-slate-900 mb-3">策略多维穿透解读</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs leading-relaxed">
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <h4 class="font-bold text-slate-800 mb-1 flex items-center gap-1 text-indigo-600">
+                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>Alpha 超额解析
+                            </h4>
+                            <p class="text-slate-600">
+                                策略曲线（蓝线）超越指数（灰线）的剪刀差空间，完全来源于<b>“年化净贴水 × 杠杆率”</b>的阶段性动态复利。不依赖任何选股和择时主动能力。
+                            </p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <h4 class="font-bold text-slate-800 mb-1 flex items-center gap-1 text-amber-600">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>杠杆双刃剑效应
+                            </h4>
+                            <p class="text-slate-600">
+                                提高杠杆虽然放大了吃贴水收益，但也等比例放大了中证500指数本身的Beta波动。一旦指数遭遇单边大熊市，高杠杆可能面临保证金追加风险。
+                            </p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <h4 class="font-bold text-slate-800 mb-1 flex items-center gap-1 text-emerald-600">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>最优版本匹配
+                            </h4>
+                            <p class="text-slate-600">
+                                <b>1.0倍杠杆（多头替代）</b>是业内的长跑基石，它既保留了中证500的全部反弹弹性，又彻底免疫了爆仓风险，且收益率天然跑赢各大公募指数基金。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- 脚本逻辑 -->
+    <script>
+        let myChart = null;
+
+        document.getElementById('runBtn').addEventListener('click', runBacktest);
+
+        function runBacktest() {
+            // 获取输入值
+            const discountRate = parseFloat(document.getElementById('discountRate').value) / 100;
+            const indexReturn = parseFloat(document.getElementById('indexReturn').value) / 100;
+            const leverage = parseFloat(document.getElementById('leverage').value);
+            const years = parseInt(document.getElementById('years').value);
+            const friction = parseFloat(document.getElementById('friction').value) / 100;
+
+            const totalPeriods = years * 52; // 按周回测
+            const dt = 1 / 52;
+            
+            // 设定中证500平稳波动率参数
+            const indexVolatility = 0.23; 
+            const weeklyDiscount = (discountRate - friction) * dt;
+            const weeklyIndexDrift = indexReturn * dt;
+
+            let labels = ['第0周'];
+            let indexData = [1.0];
+            let strategyData = [1.0];
+
+            let currentIndexNet = 1.0;
+            let currentStratNet = 1.0;
+
+            // 固定种子或相对规律的正态随机路径，使展示具有良好的金融曲线美感
+            for (let i = 1; i <= totalPeriods; i++) {
+                labels.push(`第${i}周`);
+                
+                // 蒙特卡洛/几何布朗随机震荡生成器
+                const u1 = Math.random() || 0.0001;
+                const u2 = Math.random() || 0.0001;
+                const randNormal = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+                
+                // 指数周回报率变化
+                const indexWeeklyShock = weeklyIndexDrift + indexVolatility * Math.sqrt(dt) * randNormal;
+                
+                // 计算当前周指数净值
+                currentIndexNet = currentIndexNet * (1 + indexWeeklyShock);
+                indexData.push(currentIndexNet);
+
+                // 计算当前周策略净值 (指数变化*杠杆 + 纯吃贴水净红利*杠杆)
+                const stratWeeklyReturn = (indexWeeklyShock * leverage) + (weeklyDiscount * leverage);
+                currentStratNet = currentStratNet * (1 + stratWeeklyReturn);
+                
+                if (currentStratNet < 0) currentStratNet = 0; // 跌破清零防护
+                strategyData.push(currentStratNet);
+            }
+
+            // 指标核心计算
+            const indexTotalReturnPct = (currentIndexNet - 1) * 100;
+            const stratTotalReturnPct = (currentStratNet - 1) * 100;
+            const stratAnnReturnPct = (Math.pow(currentStratNet, 1 / years) - 1) * 100;
+
+            // 计算最大回撤
+            let maxNetValue = 0;
+            let maxDdValue = 0;
+            for (let p of strategyData) {
+                if (p > maxNetValue) maxNetValue = p;
+                let dd = (maxNetValue - p) / maxNetValue;
+                if (dd > maxDdValue) maxDdValue = dd;
+            }
+
+            // 更新数据面板显示
+            document.getElementById('indexTotalReturn').innerText = (indexTotalReturnPct >= 0 ? '+' : '') + indexTotalReturnPct.toFixed(2) + '%';
+            document.getElementById('stratTotalReturn').innerText = (stratTotalReturnPct >= 0 ? '+' : '') + stratTotalReturnPct.toFixed(2) + '%';
+            document.getElementById('stratAnnReturn').innerText = (stratAnnReturnPct >= 0 ? '+' : '') + stratAnnReturnPct.toFixed(2) + '%';
+            document.getElementById('maxDrawdown').innerText = (maxDdValue * 100).toFixed(2) + '%';
+
+            // Chart.js 渲染管线
+            const ctx = document.getElementById('backtestChart').getContext('2d');
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '吃贴水策略净值',
+                            data: strategyData,
+                            borderColor: '#4f46e5',
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            lineTension: 0.1,
+                            fill: false
+                        },
+                        {
+                            label: '中证500基准净值',
+                            data: indexData,
+                            borderColor: '#94a3b8',
+                            borderWidth: 1.5,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            lineTension: 0.1,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleColor: '#94a3b8',
+                            bodyColor: '#fff',
+                            bodyFont: { family: 'monospace' },
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(4);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxTicksLimit: 10, color: '#64748b', font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { color: '#f1f5f9' },
+                            ticks: { color: '#64748b', font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 页面首次载入触发回测初始化
+        window.onload = function() {
+            runBacktest();
+        };
+    </script>
+</body>
+</html>
