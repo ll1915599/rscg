@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IC股指期货“吃贴水”策略回测系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-blue-900 mb-2">IC股指期货“吃贴水”策略模拟回测</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto text-sm">
+                IC（中证500股指期货）历史上常年存在高贴水。本系统通过模拟指数波动及贴水收敛过程，展示“多头替代”或“纯吃贴水”策略在不同杠杆和贴水率下的历史表现。
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-5">
+                <h2 class="text-lg font-semibold text-gray-900 border-b pb-2 mb-2">参数配置</h2>
+                
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">平均年化贴水率 (%)</label>
+                    <input id="discountRate" type="number" value="8" step="0.5" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500">
+                    <span class="text-gray-400 text-[11px]">历史上IC年化贴水常在5%~15%之间波动</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">指数预期年化收益 (%)</label>
+                    <input id="indexReturn" type="number" value="5" step="0.5" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500">
+                    <span class="text-gray-400 text-[11px]">中证500指数自身的长期模拟年化收益</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">策略持仓杠杆率 (倍)</label>
+                    <input id="leverage" type="number" value="1.0" step="0.1" min="0.1" max="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500">
+                    <span class="text-gray-400 text-[11px]">1.0表示全额保证金（无杠杆多头替代）</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">回测时长 (年)</label>
+                    <select id="years" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500">
+                        <option value="3">3 年</option>
+                        <option value="5" selected>5 年</option>
+                        <option value="10">10 年</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">年化展期摩擦/手续费 (%)</label>
+                    <input id="friction" type="number" value="0.5" step="0.1" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500">
+                </div>
+
+                <button id="runBtn" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition duration-200 text-sm shadow-md cursor-pointer">
+                    开始运行回测
+                </button>
+            </div>
+
+            <div class="lg:col-span-3 flex flex-col gap-6">
+                
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="text-xs text-gray-500 mb-1">指数总收益率</div>
+                        <div id="indexTotalReturn" class="text-xl font-bold text-gray-900">--</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm bg-blue-50/30">
+                        <div class="text-xs text-blue-600 mb-1">策略总收益率</div>
+                        <div id="stratTotalReturn" class="text-xl font-bold text-blue-600">--</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm bg-emerald-50/30">
+                        <div class="text-xs text-emerald-600 mb-1">策略年化收益率</div>
+                        <div id="stratAlpha" class="text-xl font-bold text-emerald-600">--</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                        <div class="text-xs text-gray-500 mb-1">策略最大回撤</div>
+                        <div id="maxDrawdown" class="text-xl font-bold text-rose-600">--</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex-1 min-h-[400px]">
+                    <h3 class="text-md font-semibold text-gray-800 mb-4">策略累计净值走势 (基期=1.0)</h3>
+                    <div class="relative w-full h-[380px]">
+                        <canvas id="backtestChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+
+        document.getElementById('runBtn').addEventListener('click', runBacktest);
+
+        function runBacktest() {
+            // 获取输入参数
+            const discountRate = parseFloat(document.getElementById('discountRate').value) / 100;
+            const indexReturn = parseFloat(document.getElementById('indexReturn').value) / 100;
+            const leverage = parseFloat(document.getElementById('leverage').value);
+            const years = parseInt(document.getElementById('years').value);
+            const friction = parseFloat(document.getElementById('friction').value) / 100;
+
+            // 模拟按周(Weekly)回测，一年按52周计算
+            const totalPeriods = years * 52;
+            
+            // 计算每期的理论均值和波动率（加入随机噪声模拟真实市场震荡）
+            const dt = 1 / 52;
+            const indexWeeklyReturn = indexReturn * dt;
+            const indexVolatility = 0.22; // 假设中证500年化波动率为22%
+            const weeklyDiscount = (discountRate - friction) * dt;
+
+            let labels = [];
+            let indexData = [1.0];
+            let strategyData = [1.0];
+
+            let currentIndexNet = 1.0;
+            let currentStratNet = 1.0;
+
+            labels.push('第0周');
+
+            // 随机种子（为了让每次生成的曲线有形态但保持计算逻辑一致，这里采用简单的伪随机或直接生成）
+            for (let i = 1; i <= totalPeriods; i++) {
+                labels.push(`第${i}周`);
+                
+                // 模拟布朗运动生成指数周涨跌幅
+                const rand = (Math.random() + Math.random() + Math.random() - 1.5) * 1.414; // 简易正态分布模拟
+                const indexShock = indexWeeklyReturn + indexVolatility * Math.sqrt(dt) * rand;
+                
+                // 1. 计算指数净值
+                currentIndexNet = currentIndexNet * (1 + indexShock);
+                indexData.push(currentIndexNet);
+
+                // 2. 计算吃贴水策略净值 (指数涨跌幅 * 杠杆 + 贴水收益 * 杠杆)
+                const stratWeeklyReturn = (indexShock * leverage) + (weeklyDiscount * leverage);
+                currentStratNet = currentStratNet * (1 + stratWeeklyReturn);
+                // 防止极端杠杆爆仓导致负数
+                if(currentStratNet < 0) currentStratNet = 0;
+                strategyData.push(currentStratNet);
+            }
+
+            // 计算指标
+            const indexTotal = (currentIndexNet - 1) * 100;
+            const stratTotal = (currentStratNet - 1) * 100;
+            const stratAnn = (Math.pow(currentStratNet, 1 / years) - 1) * 100;
+
+            // 计算最大回撤 (Strategy)
+            let maxNet = 0;
+            let maxDd = 0;
+            for(let p of strategyData) {
+                if (p > maxNet) maxNet = p;
+                let dd = (maxNet - p) / maxNet;
+                if (dd > maxDd) maxDd = dd;
+            }
+
+            // 渲染前端指标
+            document.getElementById('indexTotalReturn').innerText = indexTotal.toFixed(2) + '%';
+            document.getElementById('stratTotalReturn').innerText = stratTotal.toFixed(2) + '%';
+            document.getElementById('stratAlpha').innerText = stratAnn.toFixed(2) + '%';
+            document.getElementById('maxDrawdown').innerText = (maxDd * 100).toFixed(2) + '%';
+
+            // 绘制/更新图表
+            const ctx = document.getElementById('backtestChart').getContext('2d');
+            
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '策略 (中证500 + 吃贴水)',
+                            data: strategyData,
+                            borderColor: '#3b82f6',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            label: '基准 (中证500指数)',
+                            data: indexData,
+                            borderColor: '#9ca3af',
+                            borderWidth: 1.5,
+                            borderDash: [4, 4],
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxTicksLimit: 12 }
+                        },
+                        y: {
+                            grid: { color: '#f3f4f6' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 页面加载时自动运行一次
+        window.onload = function() {
+            runBacktest();
+        };
+    </script>
+</body>
+</html>
