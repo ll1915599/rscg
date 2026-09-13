@@ -1,0 +1,1082 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>临床决策路径判断器 · 单项选择 → 概率排序 → 完整治疗流程（宁多勿漏）</title>
+<style>
+:root{
+  --bg:#f3f6fa;--card:#fff;--ink:#152638;--muted:#5f7387;--line:#d7e2ec;
+  --blue:#0f4c81;--cyan:#168aad;--green:#2e9364;--amber:#b5790c;--red:#b93844;
+  --shadow:0 8px 24px rgba(24,48,68,.08)
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;
+  font-size:16px;line-height:1.6}
+button{font:inherit;cursor:pointer}
+
+.wrap{max-width:1200px;margin:0 auto;padding:22px 18px 60px}
+
+/* ===== 顶部 ===== */
+.hero{
+  background:linear-gradient(135deg,#0e4a7d,#1a6b9c);
+  color:#fff;border-radius:18px;padding:24px 26px;box-shadow:var(--shadow)
+}
+.hero .ey{font-size:11px;letter-spacing:.14em;font-weight:800;opacity:.9}
+.hero h1{font-size:28px;line-height:1.2;margin:8px 0 8px}
+.hero p{margin:0;font-size:14px;color:#dfedf6;max-width:780px}
+.hero .meta{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+.pill{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.24);
+  border-radius:999px;padding:5px 12px;font-size:12px}
+
+/* ===== 场景选择 ===== */
+.sceneBar{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+.sceneBtn{
+  border:1px solid var(--line);background:#fff;color:#3f5a72;border-radius:12px;
+  padding:11px 16px;font-size:14px;font-weight:650;display:flex;align-items:center;gap:8px;
+  box-shadow:0 2px 8px rgba(24,48,68,.04);transition:.16s
+}
+.sceneBtn:hover{transform:translateY(-1px);border-color:#9fbdd4}
+.sceneBtn.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.sceneBtn i{font-style:normal;font-size:16px;opacity:.9}
+
+/* ===== 布局 ===== */
+.grid{display:grid;grid-template-columns:1fr 372px;gap:18px;align-items:start;margin-top:18px}
+@media(max-width:940px){.grid{grid-template-columns:1fr}}
+
+/* ===== 问题卡 ===== */
+.qCard{background:var(--card);border:1px solid var(--line);border-radius:16px;
+  padding:20px;box-shadow:var(--shadow)}
+.qTop{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.qStep{font-size:12px;font-weight:800;color:var(--blue);background:#eaf2f8;
+  border-radius:999px;padding:5px 12px;white-space:nowrap}
+.progBar{flex:1;height:6px;background:#e7eef4;border-radius:999px;overflow:hidden}
+.progFill{height:100%;background:linear-gradient(90deg,#168aad,#0f4c81);border-radius:999px;transition:width .35s}
+.qTitle{font-size:20px;line-height:1.4;margin:0 0 4px}
+.qHint{font-size:13px;color:var(--muted);margin:0 0 14px}
+
+.opts{display:grid;gap:9px;margin-top:14px}
+.opt{
+  display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);
+  background:#fbfdff;border-radius:12px;padding:13px 15px;transition:.15s
+}
+.opt:hover{border-color:#7fa9c6;background:#f2f8fc;transform:translateX(2px)}
+.optIdx{flex:0 0 26px;height:26px;border-radius:8px;background:#e7f1f8;color:var(--blue);
+  display:grid;place-items:center;font-size:12px;font-weight:800;margin-top:1px}
+.optBody{flex:1;min-width:0}
+.optBody b{font-size:15px;font-weight:650}
+.optBody small{display:block;font-size:12px;color:var(--muted);margin-top:3px;line-height:1.55}
+
+.qNav{display:flex;gap:9px;margin-top:18px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;color:#39556c;border-radius:10px;
+  padding:10px 16px;font-size:14px;transition:.15s}
+.btn:hover:not(:disabled){border-color:#7fa9c6;color:var(--blue)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:#f7fafc;color:#7b8fa1}
+
+/* ===== 已选 chips ===== */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.chip{background:#f2f7fb;border:1px solid #dbe7f0;border-radius:999px;
+  padding:5px 12px;font-size:12px;color:#4c6579}
+.chip b{color:var(--blue);margin-right:6px;font-weight:800}
+
+/* ===== 概率面板 ===== */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;
+  box-shadow:var(--shadow);position:sticky;top:16px;overflow:hidden}
+.panelHead{padding:14px 16px 12px;border-bottom:1px solid var(--line);background:#f8fafc}
+.panelHead h3{margin:0;font-size:15px}
+.panelHead p{margin:3px 0 0;font-size:11.5px;color:var(--muted)}
+
+.riskStrip{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+.riskStrip>div{background:#fff;padding:10px 14px}
+.riskStrip small{font-size:10.5px;color:var(--muted);display:block}
+.riskStrip b{font-size:19px;display:block;margin-top:2px}
+.riskStrip .rv{color:var(--red)}
+.riskStrip .cv{color:var(--amber)}
+
+.probs{padding:12px 14px 16px;max-height:62vh;overflow:auto}
+.probRow{margin-bottom:11px}
+.probHead{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.dotLv{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.dotLv.red{background:var(--red)}
+.dotLv.caution{background:var(--amber)}
+.dotLv.common{background:var(--green)}
+.probName{flex:1;font-size:13px;font-weight:650;line-height:1.35}
+.probVal{font-size:13px;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums}
+.probTrack{height:7px;background:#eef3f7;border-radius:999px;overflow:hidden}
+.probTrack.sm{height:5px;margin:6px 0 7px}
+.probFill{height:100%;border-radius:999px;transition:width .45s cubic-bezier(.4,0,.2,1)}
+.probFill.red{background:linear-gradient(90deg,#d76a72,#b93844)}
+.probFill.caution{background:linear-gradient(90deg,#e0b45c,#b5790c)}
+.probFill.common{background:linear-gradient(90deg,#5cb98a,#2e9364)}
+
+/* ===== 结果 ===== */
+.result{padding:22px}
+.resultHead .badge{display:inline-block;background:#e8f6ee;color:#247649;
+  font-size:11px;font-weight:800;border-radius:999px;padding:4px 11px;letter-spacing:.05em}
+.resultHead h2{font-size:21px;margin:10px 0 6px}
+.resultHead p{font-size:13px;color:var(--muted);margin:0 0 4px}
+
+.flagBox{background:#fff0f2;border-left:4px solid var(--red);border-radius:10px;
+  padding:12px 14px;margin:16px 0}
+.flagBox b{color:#8c3037;font-size:13.5px}
+.flagBox ul{margin:7px 0 0;padding-left:19px}
+.flagBox li{font-size:12.5px;color:#7d3f45;line-height:1.65;margin:2px 0}
+.flagAction{margin-top:9px;background:#fff;border:1px dashed #e3b6bb;border-radius:8px;
+  padding:8px 10px;font-size:12px;color:#8c3037;line-height:1.6}
+.flagAction b{color:#a5313b}
+
+.topList{display:grid;gap:11px;margin-top:16px}
+.topCard{display:flex;gap:12px;border:1px solid var(--line);border-radius:13px;
+  padding:14px;background:#fbfdff}
+.topCard.red{border-color:#edc9cd;background:#fffafb;border-left:5px solid var(--red)}
+.topCard.caution{border-color:#ecd9b0;background:#fffcf5;border-left:5px solid var(--amber)}
+.topCard.common{border-color:#cfe5da;background:#fbfdfc;border-left:5px solid var(--green)}
+.topRank{flex:0 0 28px;height:28px;border-radius:9px;background:#eaf2f8;color:var(--blue);
+  display:grid;place-items:center;font-weight:800;font-size:13px}
+.topBody{flex:1;min-width:0}
+.topHead{display:flex;align-items:baseline;gap:9px}
+.topHead b{font-size:16px;flex:1}
+.topPct{font-size:19px;font-weight:850;color:var(--blue);font-variant-numeric:tabular-nums}
+.topLine{font-size:12.5px;color:#546b7d;line-height:1.6;margin-top:3px}
+.topLine b{color:#2f4a60}
+
+/* ===== 后续治疗流程时间线 ===== */
+.txFlow{margin-top:12px;border-top:1px dashed #dbe7f0;padding-top:11px}
+.txFlowHead{font-size:12px;font-weight:800;color:var(--blue);margin-bottom:9px;
+  letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.txFlowHead::before{content:'';width:3px;height:13px;background:var(--blue);border-radius:2px}
+.txSteps{list-style:none;margin:0;padding:0;counter-reset:tx}
+.txSteps li{position:relative;padding:0 0 11px 28px;counter-increment:tx}
+.txSteps li::before{content:counter(tx);position:absolute;left:0;top:1px;width:19px;height:19px;
+  border-radius:50%;background:#e7f1f8;color:var(--blue);font-size:10.5px;font-weight:800;
+  display:grid;place-items:center;z-index:1}
+.txSteps li::after{content:'';position:absolute;left:9px;top:22px;bottom:0;width:1px;background:#dbe7f0}
+.txSteps li:last-child{padding-bottom:0}
+.txSteps li:last-child::after{display:none}
+.txSteps li b{font-size:12.5px;color:#2f4a60;display:block}
+.txSteps li span{font-size:11.5px;color:#5f7387;line-height:1.65;display:block;margin-top:2px}
+
+.ansSummary{margin-top:18px;border-top:1px solid var(--line);padding-top:13px}
+.ansSummary>b{font-size:13px;color:var(--muted);display:block;margin-bottom:8px}
+.ansRow{display:flex;gap:10px;font-size:12.5px;padding:5px 0;border-bottom:1px dashed #e6eef4}
+.ansQ{flex:0 0 52px;color:var(--blue);font-weight:750}
+.ansA{flex:1;color:#5b7183}
+
+.disclaimer{font-size:11.5px;color:#93a5b4;margin:16px 0 0;line-height:1.7;
+  background:#f7fafc;border-radius:9px;padding:10px 12px}
+
+.footer{text-align:center;color:#93a5b4;font-size:11.5px;margin-top:26px}
+
+@media(max-width:700px){
+  .hero h1{font-size:22px}
+  .qTitle{font-size:17px}
+  .probName{font-size:12px}
+  .topHead b{font-size:14.5px}
+  .topPct{font-size:17px}
+  .panel{position:static}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="ey">CLINICAL DECISION PATH · SINGLE-CHOICE PROBABILITY ENGINE</div>
+    <h1>单项选择 → 决策路径 → 概率排序 → 完整治疗流程</h1>
+    <p>每一步只回答一个问题。你的选择会以似然比权重实时更新各鉴别诊断的概率，最终给出排序结果、红旗提示、建议检查，以及<b>宁多勿漏</b>的后续治疗流程——覆盖从急诊稳定、特异性治疗、监测随访到并发症防治的完整决策链。</p>
+    <div class="meta">
+      <span class="pill">5 个主诉场景</span>
+      <span class="pill">贝叶斯式权重更新</span>
+      <span class="pill">实时概率条</span>
+      <span class="pill">红旗自动捕捉</span>
+      <span class="pill">完整治疗流程（宁多勿漏）</span>
+    </div>
+  </div>
+
+  <div class="sceneBar" id="sceneBar"></div>
+
+  <div class="grid">
+    <div id="flow"></div>
+
+    <aside class="panel">
+      <div class="panelHead">
+        <h3>实时概率排序</h3>
+        <p id="probHint">尚未作答，显示人群先验分布</p>
+      </div>
+      <div class="riskStrip">
+        <div><small>危重病因合计</small><b class="rv" id="riskRed">—</b></div>
+        <div><small>需警惕合计</small><b class="cv" id="riskCaution">—</b></div>
+      </div>
+      <div class="probs" id="probs"></div>
+    </aside>
+  </div>
+
+  <div class="footer">
+    概率权重与治疗流程为教学用粗略估计 · 不替代专业医疗诊断 · 急性危重表现请直接进入急救流程
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   数据层：场景 → 疾病（先验）→ 问题（选项权重）
+   权重 = 似然比 LR，未列出的疾病默认 1.0
+   ============================================================ */
+const SCENARIOS = [
+/* ---------------- 1. 胸痛 ---------------- */
+{
+  id:'chest', name:'胸痛', icon:'♥',
+  sub:'急性胸痛 · 致命五联排查',
+  diseases:[
+    {id:'acs',  name:'急性冠脉综合征',      prior:0.16, level:'red',    chk:'12导联心电图（10分钟内）+ 高敏肌钙蛋白动态', tx:'抗血小板/抗凝 + 再灌注（首选急诊PCI）'},
+    {id:'ad',   name:'主动脉夹层',          prior:0.02, level:'red',    chk:'急诊主动脉CTA',                              tx:'先控心率（β阻滞剂）再降压；A型急诊外科'},
+    {id:'pe',   name:'急性肺栓塞',          prior:0.05, level:'red',    chk:'临床概率分层 → D-二聚体 / CTPA',             tx:'抗凝为基础；高危者溶栓或介入取栓'},
+    {id:'ptx',  name:'自发性气胸',          prior:0.03, level:'red',    chk:'胸片 / 床旁超声',                            tx:'张力性立即穿刺减压，随后闭式引流'},
+    {id:'peri', name:'急性心包炎',          prior:0.04, level:'caution',chk:'心电图 + 超声心动图',                        tx:'NSAIDs + 秋水仙碱，寻找病因'},
+    {id:'pneu', name:'肺炎 / 胸膜炎',       prior:0.10, level:'caution',chk:'胸片或CT + 血常规CRP',                       tx:'按严重度选择抗感染与支持治疗'},
+    {id:'gi',   name:'胃食管反流 / 肌骨痛', prior:0.25, level:'common', chk:'PPI试验 / 局部按压查体',                     tx:'对症治疗 + 生活方式调整'},
+    {id:'oth',  name:'其他 / 非特异性胸痛', prior:0.35, level:'common', chk:'动态观察，复查心电图与肌钙蛋白',              tx:'随访复评，避免漏诊'}
+  ],
+  questions:[
+    { short:'起病', q:'胸痛是怎么开始的？', hint:'起病方式是胸痛鉴别的第一分水岭。',
+      opts:[
+        {t:'突发，数秒至数分钟内达到高峰', w:{ad:4,ptx:4,pe:2,acs:1.5,peri:0.8,gi:0.5,pneu:0.8},
+         flag:'突发剧痛：优先排除主动脉夹层、气胸、肺栓塞'},
+        {t:'渐进加重，数分钟至数小时', w:{acs:1.5,peri:1.5,pneu:1.4,gi:1.2,ad:0.4,ptx:0.4}},
+        {t:'反复发作，多与活动/情绪相关', w:{acs:2.0,gi:0.6,oth:0.8}},
+        {t:'与体位改变或局部按压明显相关', w:{gi:3.0,peri:1.2,oth:1.0}}
+      ]},
+    { short:'性质', q:'疼痛的性质最接近哪一种？',
+      opts:[
+        {t:'压榨样、闷痛、沉重感', sub:'像有重物压在胸口', w:{acs:3.0,ad:1.2,pe:0.8,gi:0.8}},
+        {t:'撕裂样、刀割样，向背部迁移', w:{ad:12,acs:0.5,ptx:0.8,pe:0.7},
+         flag:'撕裂样胸背痛：高度警惕主动脉夹层'},
+        {t:'尖锐刺痛，吸气或咳嗽时加重', w:{peri:2.5,pneu:2.0,ptx:2.0,pe:1.5,acs:0.4}},
+        {t:'烧灼感，与进食/反酸相关', w:{gi:3.5,acs:0.6}},
+        {t:'局部按压可精确复现', w:{gi:3.0,oth:1.5,acs:0.3}}
+      ]},
+    { short:'伴随', q:'同时伴随哪些症状？',
+      opts:[
+        {t:'大汗淋漓、恶心呕吐', w:{acs:2.5,ad:1.5}},
+        {t:'突发呼吸困难，甚至咯血', w:{pe:3.5,ptx:1.5},
+         flag:'呼吸困难+咯血：必须排除肺栓塞'},
+        {t:'发热、咳嗽、咳痰', w:{pneu:3.0,peri:1.2}},
+        {t:'反酸、嗳气，餐后或平卧加重', w:{gi:2.5}},
+        {t:'无明显伴随症状', w:{oth:1.3,gi:1.2}}
+      ]},
+    { short:'背景', q:'有哪些危险因素或背景？',
+      opts:[
+        {t:'高血压 + 吸烟 + 糖尿病/血脂异常', w:{acs:2.0,ad:2.5,oth:0.9}},
+        {t:'近期手术、骨折制动、长途旅行、肿瘤或口服避孕药', w:{pe:4.0,oth:0.8}},
+        {t:'瘦高体型年轻男性，既往有类似发作', w:{ptx:3.0}},
+        {t:'近期有病毒感染或上呼吸道感染', w:{peri:2.5,pneu:1.3}},
+        {t:'以上均不明显', w:{oth:1.4,gi:1.2}}
+      ]},
+    { short:'体征', q:'生命体征与查体最符合哪一项？', hint:'这一题直接决定危险度分层。',
+      opts:[
+        {t:'血压低、意识改变或休克表现', w:{ad:3.0,pe:3.0,acs:2.0,ptx:3.0,oth:0.5},
+         flag:'血流动力学不稳定：立即进入急救路径，不要等待检查结果'},
+        {t:'双上肢血压差 > 20 mmHg', w:{ad:8.0,oth:0.4},
+         flag:'双上肢血压差增大：强烈提示主动脉夹层'},
+        {t:'心率增快 + 低氧（SpO₂ < 94%）', w:{pe:3.0,pneu:2.0,ptx:1.5,acs:1.2}},
+        {t:'生命体征平稳，无明显异常', w:{gi:1.5,oth:1.4,ad:0.5,ptx:0.5}}
+      ]}
+  ]
+},
+
+/* ---------------- 2. 发热 ---------------- */
+{
+  id:'fever', name:'发热', icon:'🌡',
+  sub:'发热 · 感染部位与危险度分流',
+  diseases:[
+    {id:'uri', name:'上呼吸道感染 / 流感', prior:0.35, level:'common', chk:'多临床诊断；必要时流感抗原/核酸', tx:'对症支持；高危或重症尽早抗病毒'},
+    {id:'cap', name:'社区获得性肺炎',      prior:0.12, level:'caution',chk:'胸片或CT + 血常规、CRP',          tx:'按严重度与病原风险抗感染'},
+    {id:'uti', name:'尿路感染 / 肾盂肾炎', prior:0.10, level:'caution',chk:'尿常规 + 尿培养，必要时影像',       tx:'按部位与药敏选择抗菌药物'},
+    {id:'ge',  name:'急性胃肠炎',          prior:0.12, level:'common', chk:'大便常规 + 电解质',                 tx:'口服补液为主，不常规用抗生素'},
+    {id:'sep', name:'脓毒症',              prior:0.03, level:'red',    chk:'血培养 + 乳酸 + 感染源评估',         tx:'1小时内广谱抗生素 + 液体复苏'},
+    {id:'tb',  name:'结核 / 长期发热病因', prior:0.03, level:'caution',chk:'胸片、IGRA、痰检，系统排查',         tx:'明确病因后针对性治疗'},
+    {id:'oth', name:'其他 / 未明发热',     prior:0.25, level:'common', chk:'系统筛查感染/肿瘤/自身免疫',        tx:'不盲目经验用药，先系统排查'}
+  ],
+  questions:[
+    { short:'病程', q:'发热持续了多久？',
+      opts:[
+        {t:'3 天以内', w:{uri:1.5,cap:1.2,ge:1.3,sep:1.5,tb:0.2}},
+        {t:'3 至 14 天', w:{cap:1.5,uti:1.3,uri:1.0,tb:0.8}},
+        {t:'超过 2 周', w:{tb:4.0,oth:1.5,uri:0.4,cap:0.8,ge:0.4,sep:0.3},
+         flag:'长期发热 > 2 周：进入"发热待查"系统排查路径'}
+      ]},
+    { short:'伴随', q:'最主要的伴随症状是什么？',
+      opts:[
+        {t:'鼻塞流涕、咽痛、全身酸痛', w:{uri:3.5,oth:0.8}},
+        {t:'咳嗽咳痰、胸痛或气促', w:{cap:3.0,tb:1.5,uri:1.0}},
+        {t:'尿频尿急尿痛或腰痛', w:{uti:4.0}},
+        {t:'腹泻、呕吐、腹痛', w:{ge:3.5}},
+        {t:'没有特异性伴随症状', w:{oth:1.6,tb:1.2,sep:1.2}}
+      ]},
+    { short:'体温', q:'最高体温大约是多少？',
+      opts:[
+        {t:'低于 38℃', w:{uri:1.4,tb:1.5,oth:1.3,sep:0.8}},
+        {t:'38 至 39℃', w:{uri:1.3,cap:1.3,ge:1.2,uti:1.2}},
+        {t:'超过 39℃，或反而低于 36℃', w:{sep:3.0,cap:1.5,uti:1.3,ge:1.2,uri:0.8},
+         flag:'极高热或低体温：脓毒症的危险信号'}
+      ]},
+    { short:'背景', q:'有哪些危险背景？',
+      opts:[
+        {t:'高龄、糖尿病、免疫抑制、化疗或长期激素', w:{sep:2.5,cap:2.0,tb:1.8,oth:0.8}},
+        {t:'近期周围有流感样病例，或正处于季节高峰', w:{uri:2.0}},
+        {t:'近期不洁饮食或外出聚餐', w:{ge:2.5}},
+        {t:'近期留置导尿管或尿路器械操作', w:{uti:3.0}},
+        {t:'无明显诱因', w:{oth:1.3}}
+      ]},
+    { short:'危重', q:'循环与意识状态如何？', hint:'这一题决定是否需要立即启动急救流程。',
+      opts:[
+        {t:'意识改变、低血压、少尿或皮肤花斑', w:{sep:6.0,oth:0.4},
+         flag:'感染 + 器官功能障碍：按脓毒症路径立即复苏与抗感染'},
+        {t:'心率增快、呼吸急促，但血压尚正常', w:{cap:1.8,sep:2.0,uti:1.3}},
+        {t:'精神状态与循环均稳定', w:{uri:1.3,ge:1.2,oth:1.3,sep:0.4}}
+      ]}
+  ]
+},
+
+/* ---------------- 3. 腹痛 ---------------- */
+{
+  id:'abd', name:'腹痛', icon:'◉',
+  sub:'腹痛 · 定位 + 危险度双轴判断',
+  diseases:[
+    {id:'app',   name:'急性阑尾炎',        prior:0.12, level:'caution',chk:'血常规 + 腹部超声/CT',            tx:'围手术期抗生素 + 腹腔镜切除'},
+    {id:'chole', name:'急性胆囊炎 / 胆石症',prior:0.08, level:'caution',chk:'腹部超声（首选）+ 肝功能',        tx:'抗感染 + 择期或急诊胆囊切除'},
+    {id:'panc',  name:'急性胰腺炎',        prior:0.05, level:'red',    chk:'脂肪酶/淀粉酶 + 腹部增强CT',      tx:'早期液体复苏 + 早期肠内营养'},
+    {id:'stone', name:'肾 / 输尿管结石',   prior:0.10, level:'caution',chk:'尿常规 + 泌尿系CT平扫',           tx:'NSAIDs镇痛 + 排石或碎石'},
+    {id:'ge',    name:'急性胃肠炎',        prior:0.20, level:'common', chk:'大便常规 + 电解质',               tx:'补液为主，不常规用抗生素'},
+    {id:'obst',  name:'肠梗阻',            prior:0.05, level:'red',    chk:'腹部立位片 / 腹部CT',             tx:'禁食胃肠减压 + 补液；绞窄急诊手术'},
+    {id:'ulc',   name:'消化性溃疡 / 胃炎', prior:0.15, level:'common', chk:'胃镜 + 幽门螺杆菌检测',           tx:'PPI + 根除治疗'},
+    {id:'ect',   name:'异位妊娠',          prior:0.02, level:'red',    chk:'血/尿HCG + 阴道超声',             tx:'血流动力学不稳立即手术；稳定者可MTX'},
+    {id:'oth',   name:'其他 / 非特异性腹痛',prior:0.23, level:'common',chk:'按临床问题升级影像',              tx:'随访复评，警惕演变'}
+  ],
+  questions:[
+    { short:'起病', q:'腹痛是怎么开始的？',
+      opts:[
+        {t:'突发剧烈，数分钟内达到高峰', w:{stone:3.0,panc:2.0,obst:1.5,ect:2.0,app:1.2,ulc:1.2},
+         flag:'突发剧痛：优先排除穿孔、血管急症、结石、扭转、异位妊娠'},
+        {t:'渐进加重，数小时至数天', w:{app:1.5,chole:1.5,panc:1.5,ge:1.2}},
+        {t:'反复发作，间歇期完全正常', w:{stone:2.0,chole:2.0,ulc:2.0,ge:0.8}}
+      ]},
+    { short:'部位', q:'疼痛最集中在哪个区域？',
+      opts:[
+        {t:'右上腹 / 右季肋区', w:{chole:3.5,ulc:1.2,app:0.8,stone:1.2}},
+        {t:'中上腹 / 剑突下', w:{panc:2.5,ulc:2.5,chole:1.2,app:1.5}},
+        {t:'右下腹', w:{app:4.0,ect:1.2,stone:1.2}},
+        {t:'脐周 / 中腹部', w:{app:1.8,ge:1.8,obst:2.0}},
+        {t:'腰腹部 / 肋脊角', w:{stone:4.0}},
+        {t:'下腹正中 / 耻骨上区', w:{ect:2.0,app:1.2,oth:1.2}}
+      ]},
+    { short:'放射', q:'疼痛是否向其他部位放射？',
+      opts:[
+        {t:'向右肩背部放射', w:{chole:3.0}},
+        {t:'向腰背部呈束带样放射', w:{panc:3.5,stone:1.5}},
+        {t:'向会阴或大腿内侧放射', w:{stone:3.0}},
+        {t:'没有明确放射', w:{ge:1.3,obst:1.3,oth:1.3}}
+      ]},
+    { short:'伴随', q:'伴随哪些症状？',
+      opts:[
+        {t:'发热 / 寒战', w:{chole:2.5,app:2.0,ect:1.2,ge:1.5,panc:1.3}},
+        {t:'呕吐、腹泻', w:{ge:3.0,app:1.2,obst:1.5}},
+        {t:'停止排气排便 + 腹胀', w:{obst:5.0},
+         flag:'停止排气排便：肠梗阻/绞窄风险，需急诊评估'},
+        {t:'血尿或尿频尿急', w:{stone:3.0}},
+        {t:'停经或阴道出血（育龄女性）', w:{ect:6.0},
+         flag:'育龄女性腹痛 + 停经/出血：必须先排除异位妊娠'},
+        {t:'反酸嗳气，餐后加重', w:{ulc:3.0,chole:1.2}}
+      ]},
+    { short:'诱因', q:'发作前有什么诱因？',
+      opts:[
+        {t:'进食油腻食物后', w:{chole:3.5,panc:1.5}},
+        {t:'饮酒或暴饮暴食后', w:{panc:3.5,ulc:1.3}},
+        {t:'进食不洁食物后', w:{ge:3.5}},
+        {t:'剧烈运动或外伤后', w:{oth:1.5}},
+        {t:'没有明显诱因', w:{oth:1.3}}
+      ]},
+    { short:'腹部体征', q:'腹部查体与全身状况最符合哪一项？',
+      opts:[
+        {t:'板状腹、反跳痛、拒按', w:{ulc:3.0,app:2.5,obst:2.5,chole:1.8,panc:1.5},
+         flag:'腹膜刺激征：警惕穿孔、腹膜炎，尽早外科评估'},
+        {t:'局部压痛，无腹膜刺激征', w:{app:1.5,chole:1.5,stone:1.3,ge:1.2}},
+        {t:'腹部柔软，但疼痛剧烈与体征不符', w:{panc:1.5,oth:1.2},
+         flag:'腹痛与体征不平行：老年人/房颤者需警惕肠系膜缺血'},
+        {t:'生命体征不稳定，出现休克表现', w:{obst:3.0,ect:4.0,panc:2.5},
+         flag:'腹痛伴休克：立即复苏并寻找致命病因'}
+      ]}
+  ]
+},
+
+/* ---------------- 4. 头痛 ---------------- */
+{
+  id:'head', name:'头痛', icon:'✱',
+  sub:'头痛 · 先排继发性，再谈原发性',
+  diseases:[
+    {id:'mig', name:'偏头痛',              prior:0.30, level:'common', chk:'临床诊断（符合ICHD标准）',        tx:'急性期曲普坦/NSAIDs；频繁者预防治疗'},
+    {id:'tth', name:'紧张性头痛',          prior:0.25, level:'common', chk:'临床诊断，排除继发因素',          tx:'NSAIDs短期 + 放松训练'},
+    {id:'sah', name:'蛛网膜下腔出血',      prior:0.02, level:'red',    chk:'急诊头颅CT，必要时腰穿/CTA',      tx:'绝对卧床 + 尼莫地平；介入栓塞或夹闭'},
+    {id:'men', name:'脑膜炎 / 脑炎',       prior:0.02, level:'red',    chk:'脑影像 + 腰穿 + 病原学',          tx:'经验性抗病毒/抗生素，不能延误'},
+    {id:'gca', name:'颞动脉炎',            prior:0.01, level:'caution',chk:'血沉/CRP + 颞动脉活检',           tx:'立即大剂量激素，眼科会诊'},
+    {id:'htn', name:'高血压相关头痛',      prior:0.05, level:'caution',chk:'规范血压测量 + 靶器官评估',       tx:'平稳降压，避免血压骤降'},
+    {id:'tum', name:'颅内占位 / 颅压增高', prior:0.02, level:'caution',chk:'头颅增强MRI',                     tx:'神经外科评估，降颅压'},
+    {id:'oth', name:'其他 / 非特异性头痛', prior:0.33, level:'common', chk:'按警示征象决定是否影像',          tx:'对症 + 随访'}
+  ],
+  questions:[
+    { short:'起病', q:'头痛是怎么开始的？',
+      opts:[
+        {t:'突然"炸裂样"，数秒内达到最剧烈', w:{sah:12,htn:1.5,men:1.5,oth:0.5},
+         flag:'雷击样头痛：按蛛网膜下腔出血急诊处理，不能观察'},
+        {t:'数小时至数天渐进加重', w:{men:3.0,tum:2.5,gca:2.0,htn:1.5,tth:1.0}},
+        {t:'反复发作，每次持续数小时至数天', w:{mig:3.0,tth:2.0}},
+        {t:'慢性持续，与情绪压力明显相关', w:{tth:3.0,oth:1.2}}
+      ]},
+    { short:'性质', q:'疼痛的部位与性质是？',
+      opts:[
+        {t:'单侧搏动性，中重度', w:{mig:3.5}},
+        {t:'双侧紧箍样或压迫感，轻中度', w:{tth:3.5}},
+        {t:'全头胀痛，晨起明显加重', w:{htn:2.5,tum:2.0}},
+        {t:'颞部疼痛，咀嚼时加重', w:{gca:5.0},
+         flag:'50岁以上新发颞部头痛 + 咀嚼痛：警惕颞动脉炎，可致失明'}
+      ]},
+    { short:'伴随', q:'伴随哪些症状？',
+      opts:[
+        {t:'恶心呕吐 + 畏光畏声', w:{mig:3.0}},
+        {t:'发热 + 颈强直 + 意识改变', w:{men:6.0},
+         flag:'发热 + 颈强直 + 意识改变：按中枢感染急诊处理'},
+        {t:'视力下降、复视，50岁以上新发', w:{gca:4.0,tum:1.5}},
+        {t:'局灶神经缺损或癫痫发作', w:{tum:3.0,sah:1.5,men:1.5},
+         flag:'头痛伴神经功能缺损：需急诊脑影像'},
+        {t:'没有特殊伴随症状', w:{tth:1.6,oth:1.3,htn:1.2}}
+      ]},
+    { short:'背景', q:'年龄与既往背景？',
+      opts:[
+        {t:'50 岁以下，既往有类似发作', w:{mig:2.5,tth:2.0}},
+        {t:'50 岁以上新发头痛', w:{gca:4.0,tum:2.5,htn:1.5,sah:1.3},
+         flag:'中老年新发头痛：需排除继发性病因'},
+        {t:'免疫抑制、肿瘤病史或近期感染', w:{men:3.0,tum:2.0}},
+        {t:'高血压控制不佳', w:{htn:3.0}},
+        {t:'以上均不明显', w:{oth:1.3}}
+      ]},
+    { short:'查体', q:'血压与神经系统查体结果？',
+      opts:[
+        {t:'血压 > 180/120 伴视物模糊', w:{htn:3.5,sah:1.2},
+         flag:'血压极高伴靶器官症状：按高血压急症评估'},
+        {t:'神经查体阳性（偏瘫/共济失调/意识改变）', w:{sah:2.5,tum:2.5,men:2.5},
+         flag:'神经查体阳性：急诊脑影像，不按原发性头痛处理'},
+        {t:'神经系统查体无异常', w:{mig:1.4,tth:1.4,oth:1.3}}
+      ]}
+  ]
+},
+
+/* ---------------- 5. 呼吸困难 ---------------- */
+{
+  id:'dysp', name:'呼吸困难', icon:'◍',
+  sub:'呼吸困难 · 心肺血管三线并排',
+  diseases:[
+    {id:'hf',   name:'心衰 / 急性肺水肿',      prior:0.15, level:'red',    chk:'BNP/NT-proBNP + 超声心动图 + 胸片', tx:'利尿 + 血管扩张；按血压选择方案'},
+    {id:'pe',   name:'急性肺栓塞',            prior:0.05, level:'red',    chk:'临床概率分层 → D-二聚体/CTPA',     tx:'抗凝为基础；高危者溶栓或取栓'},
+    {id:'copd', name:'哮喘 / COPD 急性加重',  prior:0.20, level:'caution',chk:'肺功能（稳定期）+ 血气',           tx:'吸入支气管扩张剂 + 激素；必要时无创通气'},
+    {id:'pneu', name:'肺炎',                  prior:0.15, level:'caution',chk:'胸片/CT + 血常规CRP',              tx:'按严重度抗感染 + 氧疗'},
+    {id:'ptx',  name:'气胸',                  prior:0.03, level:'red',    chk:'胸片 / 床旁超声',                  tx:'张力性立即减压；随后闭式引流'},
+    {id:'ane',  name:'贫血 / 代谢性因素',     prior:0.10, level:'common', chk:'血常规 + 血气 + 甲功',             tx:'纠正原发病因'},
+    {id:'anx',  name:'焦虑 / 过度通气',       prior:0.10, level:'common', chk:'排除心肺疾病后诊断',               tx:'呼吸训练 + 心理干预'},
+    {id:'oth',  name:'其他 / 未明原因',       prior:0.22, level:'common', chk:'按临床问题逐步升级检查',           tx:'随访复评'}
+  ],
+  questions:[
+    { short:'起病', q:'呼吸困难是怎么开始的？',
+      opts:[
+        {t:'突发，数分钟内出现', w:{pe:3.0,ptx:4.0,hf:1.5,oth:0.8},
+         flag:'突发呼吸困难：优先排除肺栓塞、气胸、急性心衰'},
+        {t:'数小时至数天逐渐加重', w:{hf:2.0,pneu:2.0,copd:2.0,pe:1.3}},
+        {t:'慢性反复发作，时轻时重', w:{copd:3.0,hf:1.5,ane:1.5,oth:1.2}}
+      ]},
+    { short:'诱因', q:'什么情况下会明显加重？',
+      opts:[
+        {t:'平卧加重，需要坐起来才舒服（端坐呼吸/夜间憋醒）', w:{hf:4.0},
+         flag:'端坐呼吸/夜间阵发性呼吸困难：典型心衰表现'},
+        {t:'接触过敏原、冷空气或运动后发作', w:{copd:3.0}},
+        {t:'活动后加重，休息可缓解', w:{hf:2.0,ane:2.0,copd:1.5}},
+        {t:'情绪紧张或深大呼吸后出现', w:{anx:4.0,oth:1.2}}
+      ]},
+    { short:'伴随', q:'伴随哪些症状？',
+      opts:[
+        {t:'胸痛 + 咯血', w:{pe:3.5},
+         flag:'呼吸困难 + 咯血：必须排除肺栓塞'},
+        {t:'发热 + 咳嗽咳痰', w:{pneu:3.5,copd:1.3}},
+        {t:'双下肢水肿 + 夜间不能平卧', w:{hf:3.5}},
+        {t:'喘息，呼气相明显延长', w:{copd:3.0}},
+        {t:'口唇或手足麻木、抽搐感', w:{anx:4.0}},
+        {t:'面色苍白、乏力、心悸', w:{ane:3.5}}
+      ]},
+    { short:'背景', q:'有哪些相关背景？',
+      opts:[
+        {t:'近期手术、制动、长途旅行或肿瘤病史', w:{pe:3.5}},
+        {t:'长期吸烟、粉尘暴露或慢性咳嗽咳痰', w:{copd:3.0,pneu:1.3}},
+        {t:'心脏病史、高血压或冠心病', w:{hf:3.0}},
+        {t:'瘦高年轻男性，伴突发胸痛', w:{ptx:3.5}},
+        {t:'育龄女性，月经过多或长期素食', w:{ane:3.0}},
+        {t:'无特殊背景', w:{oth:1.4,anx:1.2}}
+      ]},
+    { short:'氧合', q:'生命体征与氧合情况如何？',
+      opts:[
+        {t:'SpO₂ < 90% 或明显呼吸窘迫', w:{hf:2.0,pneu:2.0,pe:2.0,copd:1.8,ptx:2.0},
+         flag:'严重低氧：立即氧疗并评估无创通气/插管指征'},
+        {t:'低血压或意识改变', w:{pe:3.0,hf:2.5,ptx:2.5},
+         flag:'低血压 + 呼吸困难：按休克路径同步复苏'},
+        {t:'心率增快伴发热', w:{pneu:2.0}},
+        {t:'生命体征平稳，SpO₂ 正常', w:{anx:2.0,ane:1.5,oth:1.4,pe:0.4,ptx:0.4}}
+      ]}
+  ]
+}
+];
+
+/* ============================================================
+   后续治疗流程（宁多勿漏版）
+   按场景 → 疾病 id 索引
+   每步：['步骤标题','具体做法（含剂量、监测、转归）']
+   ============================================================ */
+const TX_PATHS = {
+  /* ================= 胸痛 ================= */
+  chest:{
+    acs:[
+      ['急诊评估与危险分层','10分钟内完成12导联心电图；持续心电、血压、SpO₂监护；建立两条静脉通路；高敏肌钙蛋白0h/1h动态。'],
+      ['抗血小板治疗','阿司匹林300mg嚼服；P2Y12抑制剂负荷（替格瑞洛180mg或氯吡格雷300–600mg，按出血风险与年龄选择）。'],
+      ['抗凝治疗','普通肝素60U/kg静脉推注（最大4000U），后12U/kg/h维持；或依诺肝素1mg/kg皮下q12h；监测APTT/抗Xa因子。'],
+      ['再灌注策略','STEMI：首选急诊PCI（D2B≤90min）；无PCI条件者30min内启动溶栓（阿替普酶/替奈普酶），溶栓后尽快转运至PCI中心。NSTEMI：按GRACE评分决定侵入时机（24h内/72h内/择期）。'],
+      ['并发症处理','心衰：利尿、血管扩张、必要时机械循环支持；恶性心律失常：电复律/抗心律失常药；心源性休克：升压药+机械循环支持评估。'],
+      ['二级预防与康复','双抗疗程（通常12个月，高出血风险者缩短）；他汀强化（LDL-C<1.4mmol/L）；β受体阻滞剂、ACEI/ARB；戒烟、控压控糖、心脏康复。'],
+      ['出院随访','出院后1–2周门诊复诊；评估药物依从性、心功能与康复进展；告知胸痛复发应急处理。']
+    ],
+    ad:[
+      ['ICU监护与镇痛','绝对卧床、持续心电血压监护；充分镇痛（吗啡2–4mg IV，必要时重复）；避免用力、咳嗽、情绪激动。'],
+      ['心率控制优先','静脉β受体阻滞剂（艾司洛尔0.5mg/kg负荷后50–200μg/kg/min，或拉贝洛尔），目标HR<60次/分。'],
+      ['血压控制','心率达标后加用血管扩张剂（硝普钠0.3–5μg/kg/min，或乌拉地尔），目标SBP 100–120mmHg；避免血压骤降导致器官灌注不足。'],
+      ['分型决策','A型（累及升主动脉）：急诊外科手术（Bentall/全弓置换等）；B型无并发症：药物保守治疗；B型有并发症（破裂、灌注不良、难控疼痛/高血压）：腔内修复（TEVAR）。'],
+      ['并发症监测','监测心包积液/压塞、主动脉瓣返流、冠脉受累、脊髓缺血、肾/肠系膜缺血；定期复查主动脉CTA。'],
+      ['远期随访','长期控制血压（目标<120/80mmHg）、心率；每6–12个月主动脉CTA；遗传咨询与家族筛查（如马凡、Loeys-Dietz）。']
+    ],
+    pe:[
+      ['危险分层','评估血流动力学稳定性（休克/低血压）、右心功能（超声）、肌钙蛋白与BNP；区分高危、中高危、中低危、低危。'],
+      ['起始抗凝','低分子肝素1mg/kg q12h或磺达肝癸钠2.5mg qd皮下；肾功能不全者调整；尽早过渡到口服抗凝（利伐沙班/阿哌沙班/华法林）。'],
+      ['高危患者升级','血流动力学不稳定：系统溶栓（阿替普酶100mg 2h，或50mg+50mg）；溶栓禁忌或失败：导管取栓/碎栓或外科取栓。'],
+      ['中高危患者','严密监护，评估补救性溶栓指征；若出现血流动力学恶化，按高危处理。'],
+      ['抗凝疗程','至少3个月；诱因可逆（手术、制动）者3个月；特发性/复发/肿瘤相关者延长（6个月–终身），定期评估出血风险。'],
+      ['预防复发','避免长期制动；复发高危且抗凝禁忌者评估下腔静脉滤器；肿瘤患者考虑低分子肝素长期抗凝。'],
+      ['随访','抗凝期间监测出血、血小板（肝素诱导血小板减少症）；每3–6个月评估血栓复发与出血风险。']
+    ],
+    ptx:[
+      ['紧急评估','张力性气胸：立即第2肋间锁骨中线粗针穿刺减压，随后放置胸腔闭式引流；不因等待胸片延误。'],
+      ['胸腔引流','闭式引流（水封瓶）并观察肺复张；小量稳定气胸（<2cm）可保守观察，高流量吸氧促进吸收。'],
+      ['持续漏气处理','漏气>5–7天或复发者，评估胸腔镜手术（VATS）或胸膜固定术。'],
+      ['镇痛与随访','充分镇痛；避免剧烈运动、用力、飞行（至少2–4周）；复查胸片确认肺完全复张。']
+    ],
+    peri:[
+      ['抗炎治疗','NSAIDs（布洛芬/阿司匹林）联合秋水仙碱0.5mg bid，疗程3–6个月；监测肝肾功能、血常规。'],
+      ['病因治疗','病毒性：支持治疗；细菌性：抗生素；自身免疫性：激素/免疫抑制剂；尿毒症性：透析；肿瘤性：抗肿瘤治疗。'],
+      ['心脏压塞监测','超声心动图随访；出现低血压、颈静脉怒张、奇脉时立即心包穿刺引流。'],
+      ['复发管理','顽固复发者加用糖皮质激素（泼尼松0.5mg/kg/天）或免疫抑制剂（硫唑嘌呤、IL-1抑制剂）。'],
+      ['随访','症状缓解后每1–3个月复查超声与炎症指标；避免剧烈运动直至炎症消退。']
+    ],
+    pneu:[
+      ['严重度评估','CURB-65或PSI评分决定门诊、住院或ICU治疗；评估氧合与循环状态。'],
+      ['经验性抗感染','门诊：阿莫西林/多西环素/呼吸喹诺酮；住院：β内酰胺+大环内酯或呼吸喹诺酮；ICU：β内酰胺+大环内酯/喹诺酮，按指南调整。'],
+      ['支持治疗','氧疗维持SpO₂≥94%；补液、退热、镇痛；低氧或呼吸窘迫者评估无创通气。'],
+      ['病原学随访','重症或治疗失败者复查血培养、痰培养、军团菌/病毒检测；48–72h评估疗效，无效者调整方案并排查并发症（脓胸、肺脓肿）。'],
+      ['出院与随访','退热24–48h、血流动力学稳定可出院；出院后1–2周复查胸片，评估吸收与并发症。']
+    ],
+    gi:[
+      ['对症治疗','PPI（奥美拉唑20–40mg qd）试验4–8周；或H2受体拮抗剂；促动力药（多潘立酮/莫沙必利）按需。'],
+      ['生活方式调整','减重、避免饱食、睡前3小时不进食、抬高床头、戒烟酒、减少咖啡因与辛辣食物。'],
+      ['报警征象评估','吞咽困难、消瘦、黑便、贫血者行胃镜；胸痛持续不缓解者复查心电图与肌钙蛋白。'],
+      ['随访','症状缓解后按需维持；难治者行24h pH监测/食管测压。']
+    ],
+    oth:[
+      ['留观与动态评估','急诊留观6–12小时，复查心电图与肌钙蛋白；动态评估症状变化。'],
+      ['对症处理','根据可疑病因给予相应处理（如肌骨痛予NSAIDs、焦虑予心理支持）。'],
+      ['随访复评','出院后1–2周门诊复诊；告知胸痛复发时立即就医。']
+    ]
+  },
+
+  /* ================= 发热 ================= */
+  fever:{
+    uri:[
+      ['对症支持','休息、补液、退热（对乙酰氨基酚/布洛芬）；鼻塞者用减充血剂；咳嗽者用蜂蜜/右美沙芬。'],
+      ['高危抗病毒','流感高危或重症者尽早奥司他韦75mg bid×5天，不必等待检测结果；暴露后预防75mg qd×7–10天。'],
+      ['监测恶化','出现呼吸困难、持续高热>3天、意识改变、低血压者立即升级评估。'],
+      ['随访','多数1周内自限；症状持续>10天或加重者复查。']
+    ],
+    cap:[
+      ['严重度分层','CURB-65/PSI评分决定治疗场所（门诊/住院/ICU）；评估氧合与循环。'],
+      ['抗感染治疗','门诊：阿莫西林1g tid或多西环素100mg bid；住院：头孢曲松1–2g qd+阿奇霉素500mg qd，或呼吸喹诺酮；ICU：广谱β内酰胺+大环内酯/喹诺酮。'],
+      ['支持治疗','氧疗维持SpO₂≥94%；补液、退热、镇痛；低氧者无创通气；脓毒症者按集束化治疗。'],
+      ['疗效评估','48–72h评估体温、呼吸、氧合、炎症指标；无效者调整抗感染并排查并发症（脓胸、肺脓肿、耐药菌）。'],
+      ['出院与随访','退热24–48h、生命体征稳定可出院；出院后1–2周复查胸片与血常规。']
+    ],
+    uti:[
+      ['定位分层','膀胱炎：下尿路症状，无发热；肾盂肾炎：发热、寒战、腰痛、肾区叩痛。'],
+      ['抗菌治疗','膀胱炎：呋喃妥因100mg bid×5天或磷霉素3g单次；肾盂肾炎：头孢曲松1g qd或喹诺酮500mg qd×7–14天，按药敏调整。'],
+      ['梗阻评估','发热不退、肾功能恶化、怀疑梗阻者行泌尿系超声/CT；梗阻并感染需急诊减压（支架/肾造瘘）。'],
+      ['随访','治疗后复查尿培养；反复感染者评估解剖异常与排尿功能。']
+    ],
+    ge:[
+      ['补液与电解质','口服补液盐（ORS）为主；严重脱水者静脉补液（生理盐水/林格液）；监测钾、钠。'],
+      ['对症治疗','止吐（甲氧氯普胺）、解痉（山莨菪碱）、益生菌；不常规使用抗生素。'],
+      ['抗生素指征','仅用于特定病原（志贺菌、沙门菌、弯曲杆菌重症）或免疫抑制者。'],
+      ['随访','持续腹泻>7天、血便、高热、脱水者进一步检查（大便培养、肠镜）。']
+    ],
+    sep:[
+      ['1小时集束化治疗','血培养（抗生素前）+ 乳酸 + 广谱抗生素 + 30ml/kg晶体液（3h内）；目标MAP≥65mmHg，尿量≥0.5ml/kg/h。'],
+      ['抗生素选择','哌拉西林他唑巴坦4.5g q6h或美罗培南1g q8h；怀疑MRSA加万古霉素；按药敏调整。'],
+      ['循环支持','去甲肾上腺素0.05–1μg/kg/min（首选）；必要时加血管加压素0.03U/min；难治性休克加氢化可的松200mg/d。'],
+      ['感染源控制','脓肿引流、导管拔除、梗阻解除、坏死组织清创；尽早（<12h）。'],
+      ['器官支持与监测','ICU监护；机械通气、肾脏替代治疗、输血（Hb<7g/dL）；动态评估乳酸、ScvO₂、器官功能。'],
+      ['随访','病情稳定后降阶梯抗生素；出院后随访器官功能与感染复发。']
+    ],
+    tb:[
+      ['系统排查','按发热待查路径：血培养、胸片/CT、IGRA/PPD、自身抗体、肿瘤标志物、PET-CT（必要时）。'],
+      ['病原治疗','确诊结核后：异烟肼+利福平+吡嗪酰胺+乙胺丁醇（HRZE）2个月，后HR 4个月；督导服药；监测肝功、视力。'],
+      ['支持治疗','营养支持、退热、隔离（活动性肺结核）；密切接触者筛查。'],
+      ['随访','每月复查痰涂片/培养、肝功；完成疗程后评估治愈。']
+    ],
+    oth:[
+      ['避免盲目用药','不常规经验性抗生素或激素，除非血流动力学不稳定或高度怀疑脓毒症。'],
+      ['系统排查','分阶段检查：感染、肿瘤、自身免疫、药物热；必要时PET-CT、淋巴结活检、骨髓穿刺。'],
+      ['随访','记录体温曲线；每1–2周复评；出现新症状及时就诊。']
+    ]
+  },
+
+  /* ================= 腹痛 ================= */
+  abd:{
+    app:[
+      ['术前准备','禁食、补液、纠正电解质；静脉抗生素（头孢曲松+甲硝唑，或哌拉西林他唑巴坦）；镇痛（吗啡/NSAIDs）。'],
+      ['手术治疗','首选腹腔镜阑尾切除；穿孔或脓肿者行腹腔冲洗引流；术后留置引流管（按情况）。'],
+      ['术后管理','早期活动、镇痛、按病理决定抗生素疗程（单纯性24h，穿孔性3–5天）；监测体温、白细胞、腹部体征。'],
+      ['并发症处理','术后发热/腹痛加重者复查超声/CT排除脓肿、残端漏；脓肿者穿刺引流+抗生素。'],
+      ['随访','术后1–2周门诊复诊；告知肠梗阻、粘连等远期风险。']
+    ],
+    chole:[
+      ['禁食与补液','禁食、静脉补液、镇痛（NSAIDs/阿片类）；止吐。'],
+      ['抗感染','头孢曲松+甲硝唑，或哌拉西林他唑巴坦；按药敏调整。'],
+      ['手术时机','早期（72h内）腹腔镜胆囊切除；重症胆管炎需急诊ERCP引流+抗生素，后择期胆囊切除。'],
+      ['术后管理','监测胆漏、出血、感染；引流管按情况拔除。'],
+      ['随访','术后病理；胆管结石残留者ERCP取石；饮食指导（低脂）。']
+    ],
+    panc:[
+      ['早期液体复苏','平衡晶体液（乳酸林格液）5–10ml/kg/h，评估容量反应性；避免过度复苏导致肺水肿。'],
+      ['早期肠内营养','24–72h内启动经口或鼻空肠管营养；不能耐受者肠外营养。'],
+      ['镇痛与监护','充分镇痛（芬太尼/吗啡）；重症者ICU监护；监测腹内压、器官功能。'],
+      ['并发症处理','坏死感染：抗生素（美罗培南）+穿刺引流/清创；假性囊肿：观察或内镜引流；器官衰竭：支持治疗。'],
+      ['随访','出院后1–2周复查；胰腺坏死恢复期评估胰腺内外分泌功能。']
+    ],
+    stone:[
+      ['镇痛','NSAIDs（双氯芬酸/布洛芬）为首选；阿片类（吗啡）用于难治性疼痛；止吐。'],
+      ['排石评估','<6mm：观察排石，多饮水；6–10mm：可考虑ESWL；>10mm或梗阻：输尿管镜/PCNL。'],
+      ['梗阻并感染','急诊减压（输尿管支架/肾造瘘）+广谱抗生素；感染控制后处理结石。'],
+      ['代谢评估','复发者行结石成分分析、血/尿代谢检查；调整饮食（多饮水、限钠、限草酸）。'],
+      ['随访','排石后复查影像确认无残留；反复发作者专科随访。']
+    ],
+    ge:[
+      ['补液与电解质','口服补液盐；严重脱水者静脉补液（生理盐水/林格液）；监测钾、钠、肾功能。'],
+      ['对症','止吐（甲氧氯普胺）、解痉（山莨菪碱）、益生菌；蒙脱石散保护肠黏膜。'],
+      ['抗生素指征','仅用于特定病原或重症；不常规使用。'],
+      ['随访','持续腹泻>7天、血便、高热者行大便培养、肠镜。']
+    ],
+    obst:[
+      ['禁食胃肠减压','立即禁食、胃肠减压（鼻胃管）、静脉补液；纠正电解质紊乱。'],
+      ['手术评估','绞窄、闭襻、肿瘤、腹膜炎者急诊手术；粘连性梗阻可保守观察24–48h。'],
+      ['保守治疗','生长抑素/奥曲肽减少胃肠分泌；抗生素（按需）；动态评估腹部体征与影像。'],
+      ['术后管理','监测肠功能恢复、感染、吻合口漏；营养支持。'],
+      ['随访','术后饮食指导；复发者评估粘连松解或肿瘤治疗。']
+    ],
+    ulc:[
+      ['抑酸治疗','PPI（奥美拉唑20–40mg qd或泮托拉唑40mg qd）4–8周；H2受体拮抗剂替代。'],
+      ['Hp根除','阳性者：铋剂四联（PPI+铋剂+四环素+甲硝唑）10–14天；停药4周后复查呼气试验。'],
+      ['并发症处理','出血：内镜止血+PPI静脉；穿孔：急诊手术；梗阻：内镜扩张/手术。'],
+      ['随访','难治性溃疡复查胃镜；长期NSAIDs者加PPI保护；戒烟酒。']
+    ],
+    ect:[
+      ['稳定性评估','血流动力学不稳定：立即手术（腹腔镜/开腹）；稳定者评估MTX指征（HCG<5000，包块<3.5cm，无胎心）。'],
+      ['MTX治疗','甲氨蝶呤50mg/m²肌注单次；第4、7天复查HCG，下降<15%重复；监测肝功、血常规。'],
+      ['随访','HCG降至正常（通常4–6周）；避孕3–6个月；再次妊娠早期超声确认宫内。'],
+      ['健康教育','告知异位妊娠复发风险、盆腔炎治疗、戒烟。']
+    ],
+    oth:[
+      ['观察与复评','急诊留观4–6小时，动态评估腹痛、生命体征、腹部体征。'],
+      ['按需升级','出现腹膜刺激征、发热、休克、白细胞升高者行CT/超声，外科会诊。'],
+      ['随访','出院后24–48h复诊；告知腹痛加重立即就医。']
+    ]
+  },
+
+  /* ================= 头痛 ================= */
+  head:{
+    mig:[
+      ['急性期治疗','曲普坦类（舒马曲普坦50–100mg）或NSAIDs（布洛芬400mg）；越早使用效果越好；止吐（甲氧氯普胺）。'],
+      ['预防治疗','发作≥4次/月者：β阻滞剂（普萘洛尔）、抗癫痫药（托吡酯）、CGRP单抗；疗程3–6个月评估。'],
+      ['触发因素管理','规律作息、避免诱因（红酒、奶酪、睡眠不足）、头痛日记、放松训练。'],
+      ['随访','每1–3个月评估发作频率与药物副作用；难治者转头痛专科。']
+    ],
+    tth:[
+      ['对症','NSAIDs（布洛芬/对乙酰氨基酚）短期使用；避免药物过度使用（每月<10天）。'],
+      ['非药物','放松训练、物理治疗、心理干预、改善睡眠。'],
+      ['随访','慢性化者评估共病（焦虑、抑郁）与预防用药（阿米替林）。']
+    ],
+    sah:[
+      ['急诊处理','绝对卧床、镇静、镇痛；避免用力、咳嗽、情绪激动；监测意识、瞳孔、生命体征。'],
+      ['防血管痉挛','尼莫地平口服60mg q4h或静脉，持续14–21天；监测血压。'],
+      ['病因治疗','DSA后介入栓塞（弹簧圈）或开颅夹闭；脑积水者脑室引流。'],
+      ['ICU监护','监测再出血、血管痉挛、脑积水、电解质紊乱（低钠）；每日经颅多普勒。'],
+      ['随访','出院后3–6个月复查DSA；认知康复、癫痫预防。']
+    ],
+    men:[
+      ['经验性治疗','抗生素（头孢曲松+万古霉素+氨苄西林）+阿昔洛韦，腰穿后立即给药，不能延误。'],
+      ['病原学','脑脊液涂片、培养、PCR；血培养；必要时脑活检。'],
+      ['重症监护','降颅压（甘露醇/高渗盐）、控制惊厥、维持循环；糖皮质激素（细菌性脑膜炎，地塞米松）。'],
+      ['随访','神经系统后遗症评估（听力、认知、癫痫）；康复治疗；疫苗接种。']
+    ],
+    gca:[
+      ['立即激素','高度怀疑即开始泼尼松1mg/kg/天（或甲强龙静脉），不等活检；预防不可逆视力丧失。'],
+      ['眼科评估','紧急眼科会诊，评估视力、眼底。'],
+      ['活检确诊','颞动脉活检（激素开始后1–2周内仍可诊断）。'],
+      ['长期管理','激素缓慢减量（数月–数年）；补钙+维生素D、双膦酸盐预防骨质疏松；监测复发与血管并发症。']
+    ],
+    htn:[
+      ['平稳降压','高血压急症：静脉降压（乌拉地尔/硝普钠），第1小时MAP降≤25%；亚急症：口服降压药，24–48h逐步达标。'],
+      ['靶器官评估','心电图、肾功、眼底、头颅CT/MRI；评估心、脑、肾损害。'],
+      ['长期管理','生活方式+降压药物；目标<130/80mmHg；随访依从性与副作用。']
+    ],
+    tum:[
+      ['神经外科评估','影像定位，必要时立体定向活检；评估手术指征。'],
+      ['降颅压','甘露醇0.25–0.5g/kg IV q4–6h；地塞米松4–8mg q6h减轻瘤周水肿；抬高床头。'],
+      ['综合治疗','手术、放疗（全脑/立体定向）、化疗、靶向/免疫治疗按病理与分期。'],
+      ['随访','每2–3个月复查MRI；神经功能康复；癫痫预防。']
+    ],
+    oth:[
+      ['对症','按头痛类型对症处理；避免药物过度使用。'],
+      ['随访','出现警示征象（突发、发热、神经缺损、50岁后新发）时复查影像。']
+    ]
+  },
+
+  /* ================= 呼吸困难 ================= */
+  dysp:{
+    hf:[
+      ['体位与氧疗','坐位、双下肢下垂；氧疗维持SpO₂≥94%；必要时无创通气（CPAP/BiPAP）。'],
+      ['利尿','呋塞米20–40mg IV，无效可加倍；监测尿量、电解质、肾功能。'],
+      ['血管扩张','血压允许时硝酸甘油10–200μg/min IV或硝普钠0.3–5μg/kg/min；监测血压。'],
+      ['稳定后优化','新四联（ARNI/ACEI+β阻滞剂+MRA+SGLT2i）逐步滴定；评估ICD/CRT指征。'],
+      ['诱因处理','感染、缺血、心律失常、依从性差、甲亢等；限盐限水、每日称重。'],
+      ['随访','出院后1–2周复诊；监测BNP、肾功能、电解质；心脏康复。']
+    ],
+    pe:[
+      ['危险分层','评估血流动力学稳定性、右心功能、肌钙蛋白与BNP。'],
+      ['起始抗凝','低分子肝素1mg/kg q12h或磺达肝癸钠2.5mg qd；尽早过渡到口服抗凝。'],
+      ['高危患者升级','血流动力学不稳定：系统溶栓（阿替普酶100mg 2h）；溶栓禁忌或失败：导管取栓/外科取栓。'],
+      ['抗凝疗程','至少3个月；诱因可逆者3个月，特发性/复发/肿瘤者延长。'],
+      ['预防复发','避免制动；复发高危且抗凝禁忌者评估下腔静脉滤器。'],
+      ['随访','监测出血、血小板；每3–6个月评估复发与出血风险。']
+    ],
+    copd:[
+      ['支气管扩张','沙丁胺醇2.5mg+异丙托溴铵0.5mg雾化，q20min×3，后q1h；或吸入剂。'],
+      ['激素','甲强龙40–80mg IV q6h或泼尼松40–60mg口服，5–7天。'],
+      ['氧疗与通气','控制性氧疗（目标SpO₂88–92%）；呼吸性酸中毒者无创通气；恶化者插管。'],
+      ['抗感染','有感染征象者：阿莫西林克拉维酸/呼吸喹诺酮/头孢；按药敏调整。'],
+      ['随访','稳定后吸入维持治疗（LAMA/LABA/ICS）；肺康复；戒烟；疫苗接种。']
+    ],
+    pneu:[
+      ['严重度评估','CURB-65/PSI评分决定门诊、住院或ICU。'],
+      ['经验性抗感染','按场所与危险因素选择方案；48–72h评估疗效。'],
+      ['支持治疗','氧疗、补液、退热；低氧者无创通气；脓毒症者集束化治疗。'],
+      ['病原学随访','重症或治疗失败者复查培养与影像，调整方案。'],
+      ['出院与随访','退热24–48h可出院；1–2周复查胸片。']
+    ],
+    ptx:[
+      ['紧急评估','张力性气胸：立即第2肋间穿刺减压，随后闭式引流。'],
+      ['胸腔引流','闭式引流并观察肺复张；小量稳定气胸可保守观察。'],
+      ['持续漏气处理','漏气>5–7天或复发者，VATS手术或胸膜固定。'],
+      ['随访','避免剧烈运动、飞行2–4周；复查胸片。']
+    ],
+    ane:[
+      ['纠正原发病','缺铁：口服/静脉铁剂；B12/叶酸缺乏：补充；慢性病：控制原发病。'],
+      ['输血评估','Hb<7g/dL或有症状者输血；监测输血反应。'],
+      ['随访','复查血常规、铁代谢、维生素水平；评估病因是否纠正。']
+    ],
+    anx:[
+      ['呼吸训练','腹式呼吸、纸袋呼吸（排除器质病后）；放松技巧。'],
+      ['心理干预','认知行为治疗；必要时SSRI类药物。'],
+      ['随访','排除器质病因后长期管理；定期评估焦虑水平。']
+    ],
+    oth:[
+      ['动态评估','监测氧合、生命体征；逐步排查病因。'],
+      ['随访','按病因随访；出现恶化及时升级检查。']
+    ]
+  }
+};
+
+/* ============================================================
+   状态与计算
+   ============================================================ */
+const state = { scenarioId:'chest', answers:[] };
+
+function currentScenario(){
+  return SCENARIOS.find(s=>s.id===state.scenarioId) || SCENARIOS[0];
+}
+
+/* 贝叶斯式权重更新：后验 ∝ 先验 × Π LR */
+function computeProbs(sc, answers){
+  const score = {};
+  sc.diseases.forEach(d => score[d.id] = d.prior);
+
+  sc.questions.forEach((q, i) => {
+    const ai = answers[i];
+    if(ai === null || ai === undefined) return;
+    const opt = q.opts[ai];
+    if(!opt || !opt.w) return;
+    for(const k in opt.w){
+      if(score[k] !== undefined) score[k] *= opt.w[k];
+    }
+  });
+
+  let sum = 0;
+  for(const k in score) sum += score[k];
+  if(!sum) sum = 1;
+
+  const out = [];
+  for(const k in score) out.push({ id:k, p: score[k] / sum });
+  out.sort((a,b) => b.p - a.p);
+  return out;
+}
+
+function collectFlags(sc, answers){
+  const out = [];
+  sc.questions.forEach((q, i) => {
+    const ai = answers[i];
+    if(ai === null || ai === undefined) return;
+    const o = q.opts[ai];
+    if(o && o.flag) out.push(o.flag);
+  });
+  return out;
+}
+
+/* ============================================================
+   渲染
+   ============================================================ */
+const LETTERS = 'ABCDEFG';
+
+function renderSceneBar(){
+  document.getElementById('sceneBar').innerHTML = SCENARIOS.map(s =>
+    `<button class="sceneBtn ${s.id===state.scenarioId?'on':''}" onclick="pickScene('${s.id}')">
+      <i>${s.icon}</i><span>${s.name}</span>
+    </button>`
+  ).join('');
+}
+
+function pickScene(id){
+  state.scenarioId = id;
+  state.answers = [];
+  render();
+}
+
+function render(){
+  renderSceneBar();
+  const sc = currentScenario();
+  const probs = computeProbs(sc, state.answers);
+  renderProbs(sc, probs);
+  renderFlow(sc, probs);
+}
+
+function renderProbs(sc, probs){
+  const answered = state.answers.filter(a => a !== null && a !== undefined).length;
+  const total = sc.questions.length;
+
+  document.getElementById('probHint').textContent = answered === 0
+    ? '尚未作答，显示人群先验分布'
+    : `已作答 ${answered} / ${total} 步 · 实时权重更新`;
+
+  const redSum = probs.filter(x => {
+    const d = sc.diseases.find(y => y.id === x.id);
+    return d && d.level === 'red';
+  }).reduce((a,b) => a + b.p, 0);
+
+  const cautionSum = probs.filter(x => {
+    const d = sc.diseases.find(y => y.id === x.id);
+    return d && d.level === 'caution';
+  }).reduce((a,b) => a + b.p, 0);
+
+  document.getElementById('riskRed').textContent = (redSum*100).toFixed(0) + '%';
+  document.getElementById('riskCaution').textContent = (cautionSum*100).toFixed(0) + '%';
+
+  document.getElementById('probs').innerHTML = probs.map(x => {
+    const d = sc.diseases.find(y => y.id === x.id);
+    const pct = x.p * 100;
+    const label = pct < 0.5 ? '&lt;1%' : pct.toFixed(0) + '%';
+    return `<div class="probRow">
+      <div class="probHead">
+        <span class="dotLv ${d.level}"></span>
+        <span class="probName">${d.name}</span>
+        <span class="probVal">${label}</span>
+      </div>
+      <div class="probTrack">
+        <div class="probFill ${d.level}" style="width:${Math.max(pct,0.7)}%"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderFlow(sc, probs){
+  const host = document.getElementById('flow');
+  const qi = sc.questions.findIndex((q,i) => state.answers[i] === null || state.answers[i] === undefined);
+
+  if(qi === -1){
+    host.innerHTML = resultHTML(sc, probs);
+    return;
+  }
+
+  const q = sc.questions[qi];
+  const canBack = state.answers.some(a => a !== null && a !== undefined);
+
+  host.innerHTML = `
+    <div class="qCard">
+      <div class="qTop">
+        <span class="qStep">${sc.name} · 第 ${qi+1} / ${sc.questions.length} 步</span>
+        <div class="progBar"><div class="progFill" style="width:${(qi/sc.questions.length*100)}%"></div></div>
+      </div>
+      <h2 class="qTitle">${q.q}</h2>
+      ${q.hint ? `<p class="qHint">${q.hint}</p>` : ''}
+      <div class="opts">
+        ${q.opts.map((o,i) => `
+          <div class="opt" onclick="answer(${i})">
+            <span class="optIdx">${LETTERS[i]}</span>
+            <span class="optBody">
+              <b>${o.t}</b>
+              ${o.sub ? `<small>${o.sub}</small>` : ''}
+            </span>
+          </div>`).join('')}
+      </div>
+      <div class="qNav">
+        <button class="btn" onclick="back()" ${canBack?'':'disabled'}>← 上一步</button>
+        <button class="btn ghost" onclick="resetAll()">重新开始</button>
+      </div>
+    </div>
+    ${chipsHTML(sc)}`;
+}
+
+function chipsHTML(sc){
+  const items = sc.questions.map((q,i) => {
+    const a = state.answers[i];
+    if(a === null || a === undefined) return '';
+    return `<span class="chip"><b>${q.short}</b>${q.opts[a].t}</span>`;
+  }).filter(Boolean).join('');
+  return items ? `<div class="chips">${items}</div>` : '';
+}
+
+function answer(oi){
+  const sc = currentScenario();
+  const qi = sc.questions.findIndex((q,i) => state.answers[i] === null || state.answers[i] === undefined);
+  if(qi === -1) return;
+  state.answers[qi] = oi;
+  render();
+}
+
+function back(){
+  const sc = currentScenario();
+  let last = -1;
+  for(let i = 0; i < sc.questions.length; i++){
+    if(state.answers[i] !== null && state.answers[i] !== undefined) last = i;
+  }
+  if(last >= 0){
+    state.answers[last] = null;
+    state.answers.length = last + 1;
+  }
+  render();
+}
+
+function resetAll(){
+  state.answers = [];
+  render();
+}
+
+function txStepsHTML(sc, d){
+  const paths = TX_PATHS[sc.id] || {};
+  const steps = paths[d.id];
+  if(!steps || !steps.length) return '';
+  return `<div class="txFlow">
+    <div class="txFlowHead">后续治疗流程 · 宁多勿漏</div>
+    <ol class="txSteps">
+      ${steps.map(s => `<li><b>${s[0]}</b><span>${s[1]}</span></li>`).join('')}
+    </ol>
+  </div>`;
+}
+
+function resultHTML(sc, probs){
+  const flags = collectFlags(sc, state.answers);
+  const top = probs.slice(0, 3);
+
+  const answerRows = sc.questions.map((q,i) => {
+    const a = state.answers[i];
+    return `<div class="ansRow">
+      <span class="ansQ">${q.short}</span>
+      <span class="ansA">${a === null || a === undefined ? '—' : q.opts[a].t}</span>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="qCard result">
+    <div class="resultHead">
+      <span class="badge">判断完成</span>
+      <h2>${sc.name} · 概率排序与完整治疗流程</h2>
+      <p>基于你所选路径的权重更新结果，用于临床思维训练，不构成诊断结论。治疗流程按"宁多勿漏"原则展开，覆盖从急诊稳定到随访的完整决策链。</p>
+    </div>
+
+    ${flags.length ? `<div class="flagBox">
+      <b>⚠ 本次路径触发的红旗</b>
+      <ul>${flags.map(f => `<li>${f}</li>`).join('')}</ul>
+      <div class="flagAction">
+        <b>立即行动：</b>先稳定生命体征（气道/呼吸/循环）→ 建立静脉通路与监护 → 完成针对性床旁检查 → 同步呼叫专科会诊，不要因等待确诊而延误。
+      </div>
+    </div>` : ''}
+
+    <div class="topList">
+      ${top.map((x,i) => {
+        const d = sc.diseases.find(y => y.id === x.id);
+        const pct = x.p * 100;
+        return `<div class="topCard ${d.level}">
+          <div class="topRank">${i+1}</div>
+          <div class="topBody">
+            <div class="topHead">
+              <b>${d.name}</b>
+              <span class="topPct">${pct < 0.5 ? '&lt;1' : pct.toFixed(0)}%</span>
+            </div>
+            <div class="probTrack sm">
+              <div class="probFill ${d.level}" style="width:${Math.max(pct,1)}%"></div>
+            </div>
+            <div class="topLine"><b>建议检查：</b>${d.chk}</div>
+            ${txStepsHTML(sc, d)}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="ansSummary">
+      <b>你的作答路径</b>
+      ${answerRows}
+    </div>
+
+    <div class="qNav">
+      <button class="btn" onclick="back()">← 返回修改</button>
+      <button class="btn ghost" onclick="resetAll()">重新开始</button>
+      <button class="btn ghost" onclick="pickScene('${sc.id}')">换个场景</button>
+    </div>
+
+    <p class="disclaimer">
+      说明：本例中的先验概率、权重与治疗流程为教学演示用的粗略估计，不代表个体真实患病概率，也不构成处方建议；实际临床需结合完整病史、查体、检验与影像综合判断，并遵循最新指南与药品说明书。出现急性或危重表现时，请直接进入急救与专科流程。
+    </p>
+  </div>`;
+}
+
+/* ============ 启动 ============ */
+render();
+</script>
+</body>
+</html>
